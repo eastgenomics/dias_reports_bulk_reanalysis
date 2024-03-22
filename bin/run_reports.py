@@ -595,7 +595,7 @@ def monitor_launched_jobs(job_ids, mode) -> None:
             ])
         )
 
-        # separate failed and done to stop monitoring
+        # split failed, terminated (when testing) and done to stop monitoring
         failed = [
             k for k, v in job_states.items()
             if v in ['failed', 'partially failed']
