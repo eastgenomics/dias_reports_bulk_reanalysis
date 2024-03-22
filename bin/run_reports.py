@@ -27,12 +27,12 @@ def get_projects(assay, start) -> List[dict]:
 
     projects = sorted(
         dxpy.bindings.search.find_projects(
-            name=f'002_*{assay}',
-            name_mode='glob',
+            name=f"002_*{assay}",
+            name_mode="glob",
             created_after=f"-{start}d",
-            describe=True
+            describe=True,
         ),
-        key = lambda x: x['describe']['name']
+        key=lambda x: x["describe"]["name"],
     )
 
     print(f"Found {len(projects)} projects in past {start} days")
@@ -56,12 +56,14 @@ def get_single_dir(project) -> str:
     str
         Dias single output path
     """
-    files = list(dxpy.find_data_objects(
-        project=project,
-        name="*multiqc.html",
-        name_mode="glob",
-        describe=True
-    ))
+    files = list(
+        dxpy.find_data_objects(
+            project=project,
+            name="*multiqc.html",
+            name_mode="glob",
+            describe=True,
+        )
+    )
 
     if len(files) > 1:
         # TODO handle which to choose, should just be one so far
@@ -88,18 +90,17 @@ def get_cnv_call_job(project) -> str:
     str
         job ID of CNV calling job
     """
-    jobs = list(dxpy.find_jobs(
-        project=project,
-        name="*GATK*",
-        name_mode="glob",
-        state="done"
-    ))
+    jobs = list(
+        dxpy.find_jobs(
+            project=project, name="*GATK*", name_mode="glob", state="done"
+        )
+    )
 
     if len(jobs) > 1:
         # TODO handle multiple job IDs returned and None
         return
 
-    job_id = jobs[0]['id']
+    job_id = jobs[0]["id"]
     print(f"CNV job found: {job_id}")
 
     return job_id
@@ -119,12 +120,14 @@ def get_report_jobs(project) -> List[dict]:
     list
         list of jobs details
     """
-    jobs = list(dxpy.find_jobs(
-        project=project,
-        name="eggd_generate_variant_workbook",
-        state="done",
-        describe=True
-    ))
+    jobs = list(
+        dxpy.find_jobs(
+            project=project,
+            name="eggd_generate_variant_workbook",
+            state="done",
+            describe=True,
+        )
+    )
 
     print(f"Found {len(jobs)} generate variant workbook jobs\n")
 
@@ -150,14 +153,16 @@ def get_sample_name_and_test_code(job_details) -> Union[str, str]:
     """
     try:
         report_details = dxpy.describe(
-            job_details['describe']['output']['xlsx_report']['$dnanexus_link']
+            job_details["describe"]["output"]["xlsx_report"]["$dnanexus_link"]
         )
     except dxpy.exceptions.ResourceNotFound:
         # file has been deleted, skip this sample -> clinical indication
         return None, None
 
-    sample = re.match(r'^[\w]+-[\w]+', report_details['name']).group(0)
-    code = job_details['describe']['runInput']['clinical_indication'].split('_')[0]
+    sample = re.match(r"^[\w]+-[\w]+", report_details["name"]).group(0)
+    code = job_details["describe"]["runInput"]["clinical_indication"].split(
+        "_"
+    )[0]
 
     return sample, code
 
@@ -188,9 +193,8 @@ def generate_manifest(report_jobs, project_name, now) -> List[dict]:
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
         concurrent_jobs = {
-            executor.submit(
-                get_sample_name_and_test_code, job
-            ) for job in report_jobs
+            executor.submit(get_sample_name_and_test_code, job)
+            for job in report_jobs
         }
 
         for future in concurrent.futures.as_completed(concurrent_jobs):
@@ -201,24 +205,26 @@ def generate_manifest(report_jobs, project_name, now) -> List[dict]:
                 if sample and code:
                     samples_indications[sample].append(code)
                 else:
-                    print('foo')
+                    print("foo")
             except Exception as exc:
                 # catch any errors that might get raised during querying
-                print(f"Error getting data for {concurrent_jobs[future]}: {exc}")
-
+                print(
+                    f"Error getting data for {concurrent_jobs[future]}: {exc}"
+                )
 
     # ensure we don't duplicate test codes for a sample
     samples_indications = {
-        sample: list(set(codes)) for sample, codes in samples_indications.items()
+        sample: list(set(codes))
+        for sample, codes in samples_indications.items()
     }
 
     if samples_indications:
         # found at least one sample report job to rerun
         manifest = f"{project_name}-{now}_re_run.manifest"
 
-        count  = 0
+        count = 0
 
-        with open(manifest, 'w') as fh:
+        with open(manifest, "w") as fh:
             fh.write(
                 "batch\nInstrument ID;Specimen ID;Re-analysis Instrument ID;"
                 "Re-analysis Specimen ID;Test Codes\n"
@@ -251,9 +257,7 @@ def upload_manifest(manifest, path) -> str:
         file ID of uploaded manifest
     """
     remote_file = dxpy.upload_local_file(
-        manifest,
-        folder=path,
-        wait_on_close=True
+        manifest, folder=path, wait_on_close=True
     )
 
     # clean up our generated file
@@ -263,14 +267,8 @@ def upload_manifest(manifest, path) -> str:
 
 
 def run_batch(
-    project,
-    cnv_job,
-    single_path,
-    manifest,
-    name,
-    assay,
-    terminate
-    ) -> str:
+    project, cnv_job, single_path, manifest, name, assay, terminate
+) -> str:
     """
     Runs dias batch in the specified project
 
@@ -300,22 +298,18 @@ def run_batch(
     cnv_reports = True if cnv_job else False
 
     app_input = {
-        'cnv_call_job_id': cnv_job,
-        'cnv_reports': cnv_reports,
-        'snv_reports': True,
-        'artemis': True,
-        'manifest_files': [{
-            "$dnanexus_link": manifest
-        }],
-        'single_output_dir': single_path,
-        'assay': assay,
-        'testing': terminate
+        "cnv_call_job_id": cnv_job,
+        "cnv_reports": cnv_reports,
+        "snv_reports": True,
+        "artemis": True,
+        "manifest_files": [{"$dnanexus_link": manifest}],
+        "single_output_dir": single_path,
+        "assay": assay,
+        "testing": terminate,
     }
 
-    job = dxpy.DXApp('app-GfG4Bf84QQg40v7Y6zKF34KP').run(
-        app_input=app_input,
-        project=project,
-        name=name
+    job = dxpy.DXApp("app-GfG4Bf84QQg40v7Y6zKF34KP").run(
+        app_input=app_input, project=project, name=name
     )
 
     print(f"Launched dias batch job {job.id} in {project}")
@@ -349,13 +343,13 @@ def date_to_datetime(date) -> int:
     int
         n days ago from today
     """
-    assert len(date) == 6 and re.match(r'^2[3|4|5]', date), (
-        'Date provided does not seem valid'
-    )
+    assert len(date) == 6 and re.match(
+        r"^2[3|4|5]", date
+    ), "Date provided does not seem valid"
 
     # split parts of date out, removing leading 0 (required for datetime)
     year, month, day = [
-        int(date[i:i+2].lstrip('0')) for i in range(0, len(date), 2)
+        int(date[i : i + 2].lstrip("0")) for i in range(0, len(date), 2)
     ]
 
     start = datetime(year=int(f"20{year}"), month=month, day=day)
@@ -374,28 +368,34 @@ def parse_args() -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '-a', '--assay', type=str, choices=['CEN', 'TWE']
+        "-a", "--assay", type=str, choices=["CEN", "TWE"], required=True
     )
     parser.add_argument(
-        '-d', '--date', default='230614',
+        "-d",
+        "--date",
+        default="230614",
         help=(
-            'Earliest date to search for 002 projects, should be in the form '
-            'YYMMDD'
-        )
+            "Earliest date to search for 002 projects, should be in the form "
+            "YYMMDD"
+        ),
     )
     parser.add_argument(
-        '--config', type=str, help='file ID of assay config file to use'
+        "--config", type=str, help="file ID of assay config file to use"
     )
     parser.add_argument(
-        '--testing', type=bool, default=True,
+        "--testing",
+        type=bool,
+        default=True,
         help=(
-            'Controls where dias batch is run, when testing launch all in '
-            'one 003 project'
-        )
+            "Controls where dias batch is run, when testing launch all in "
+            "one 003 project"
+        ),
     )
     parser.add_argument(
-        '--terminate', type=bool, default=True,
-        help="Controls if to terminate all jobs dias batch launches"
+        "--terminate",
+        type=bool,
+        default=True,
+        help="Controls if to terminate all jobs dias batch launches",
     )
 
     return parser.parse_args()
@@ -408,16 +408,16 @@ def main():
 
     projects = get_projects(assay=args.assay, start=days)
 
-    now = datetime.now().strftime('%y%m%d_%H%M')
+    now = datetime.now().strftime("%y%m%d_%H%M")
 
     create_folder(path=f"/manifests/{now}")
 
     for project in projects[5:]:
         print(f"\nSearching {project['describe']['name']}...")
 
-        single_path = get_single_dir(project=project['id'])
-        cnv_job = get_cnv_call_job(project=project['id'])
-        report_jobs = get_report_jobs(project=project['id'])
+        single_path = get_single_dir(project=project["id"])
+        cnv_job = get_cnv_call_job(project=project["id"])
+        report_jobs = get_report_jobs(project=project["id"])
 
         if not report_jobs:
             print(
@@ -428,22 +428,21 @@ def main():
 
         manifest = generate_manifest(
             report_jobs=report_jobs,
-            project_name=project['describe']['name'],
-            now=now
+            project_name=project["describe"]["name"],
+            now=now,
         )
         manifest_id = upload_manifest(
-            manifest=manifest,
-            path=f"/manifests/{now}"
-            )
+            manifest=manifest, path=f"/manifests/{now}"
+        )
 
         # name for naming dias batch job
         name = f"eggd_dias_batch_{project['describe']['name']}"
 
         if args.testing:
             # when testing run everything in one 003 project
-            batch_project = 'project-Ggvgj6j45jXv43B84Vfzvgv6'
+            batch_project = "project-Ggvgj6j45jXv43B84Vfzvgv6"
         else:
-            batch_project = project['id']
+            batch_project = project["id"]
 
         batch_id = run_batch(
             project=batch_project,
@@ -452,11 +451,12 @@ def main():
             manifest=manifest_id,
             name=name,
             assay=args.assay,
-            terminate=args.terminate
+            terminate=args.terminate,
         )
 
-        with open(f"launched_batch_jobs_{now}.log", 'w') as fh:
+        with open(f"launched_batch_jobs_{now}.log", "w") as fh:
             fh.write(f"{batch_id}\n")
+
 
 if __name__ == "__main__":
     main()
