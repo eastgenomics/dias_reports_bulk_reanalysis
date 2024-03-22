@@ -1,3 +1,8 @@
+"""
+Script to search through 002 projects in a given date range to find
+previously run reports workflows and rerun dias_batch for these samples
+with latest / specified assay config file
+"""
 import argparse
 from collections import defaultdict
 import concurrent
