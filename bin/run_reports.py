@@ -110,6 +110,7 @@ def get_cnv_call_job(project) -> str:
     """
     # some projects have multiple (expected) CNV call jobs, manually
     # select the one we want to use output from
+    # TODO - move this to a config
     selected_jobs = {
         "project-GgZyg8j47Ky5z0vBG0JBB0QJ":	"job-Ggggppj47Ky46K2KZYyB7J3B",
         "project-GgJ3gf04F80JY20Gjkp0QjF4":	"job-GgPYb984F80JZv63zG198VvZ",
