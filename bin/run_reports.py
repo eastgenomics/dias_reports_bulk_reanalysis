@@ -4,11 +4,12 @@ previously run reports workflows and rerun dias_batch for these samples
 with latest / specified assay config file
 """
 import argparse
-from collections import defaultdict
+from collections import Counter, defaultdict
 import concurrent
 from datetime import datetime
 from pathlib import Path
 import re
+from time import sleep
 from typing import List, Union
 import os
 
@@ -56,6 +57,20 @@ def get_single_dir(project) -> str:
     str
         Dias single output path
     """
+    # project we know have more than one single output directory and
+    # have manually selected one
+    # TODO - add this to config or something
+    single_dirs = {
+        "project-GgXvB984QX3xF6qkPK4Kp5xx": "/output/CEN-240304_1257"
+    }
+
+    if single_dirs.get(project):
+        path = f"{project}:{single_dirs.get(project)}"
+
+        print(f"Using specified Dias single path: {path}")
+
+        return path
+
     files = list(
         dxpy.find_data_objects(
             project=project,
@@ -67,6 +82,9 @@ def get_single_dir(project) -> str:
 
     if len(files) > 1:
         # TODO handle which to choose, should just be one so far
+        print(f'More than single path found, multiqc files found')
+        for x in files:
+            print(x)
         return
 
     path = f"{project}:{Path(files[0]['describe']['folder']).parent}"
@@ -90,6 +108,24 @@ def get_cnv_call_job(project) -> str:
     str
         job ID of CNV calling job
     """
+    # some projects have multiple (expected) CNV call jobs, manually
+    # select the one we want to use output from
+    selected_jobs = {
+        "project-GgZyg8j47Ky5z0vBG0JBB0QJ":	"job-Ggggppj47Ky46K2KZYyB7J3B",
+        "project-GgJ3gf04F80JY20Gjkp0QjF4":	"job-GgPYb984F80JZv63zG198VvZ",
+        "project-GZk71GQ446x5YQkjzvpYFBzB":	"job-GZq727Q446x28FQ74BkqBJx9",
+        "project-GZ3zJBj4X0Vy0b4Y20QyG1B2":	"job-GZ4q5VQ4X0Vz3jkP95Yb058J",
+        "project-GXZg37j4kgGxFZ29fj3f3Yp4":	"job-GXby1ZQ4kgGXQK7gyv506Xj9",
+        "project-GXZg0J04BXfPFFZYYFGz42bP":	"job-GXbyZ104BXf8G5296g93bvx2"
+    }
+
+    if selected_jobs.get(project):
+        job = selected_jobs.get(project)
+
+        print(f"Using specified CNV job: {job}")
+
+        return job
+
     jobs = list(
         dxpy.find_jobs(
             project=project, name="*GATK*", name_mode="glob", state="done"
@@ -98,12 +134,51 @@ def get_cnv_call_job(project) -> str:
 
     if len(jobs) > 1:
         # TODO handle multiple job IDs returned and None
+        print('more than one cnv job found')
+        for x in jobs:
+            print(x)
         return
 
     job_id = jobs[0]["id"]
     print(f"CNV job found: {job_id}")
 
     return job_id
+
+
+def get_job_states(job_ids) -> dict:
+    """
+    Query the state of given set of job IDs
+
+    Parameters
+    ----------
+    job_ids : list
+        list of job IDs to query
+
+    Returns
+    -------
+    dict
+        mapping of job ID to it's state
+    """
+    job_state = {}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+        concurrent_jobs = {
+            executor.submit(dxpy.describe, job) for job in job_ids
+        }
+
+        for future in concurrent.futures.as_completed(concurrent_jobs):
+            # access returned output as each is returned in any order
+            try:
+                details = future.result()
+
+                job_state[details['id']] = details['state']
+            except Exception as exc:
+                # catch any errors that might get raised during querying
+                print(
+                    f"Error getting data for {concurrent_jobs[future]}: {exc}"
+                )
+
+    return job_state
 
 
 def get_report_jobs(project) -> List[dict]:
@@ -129,7 +204,7 @@ def get_report_jobs(project) -> List[dict]:
         )
     )
 
-    print(f"Found {len(jobs)} generate variant workbook jobs\n")
+    print(f"Found {len(jobs)} generate variant workbook jobs")
 
     return jobs
 
@@ -205,7 +280,8 @@ def generate_manifest(report_jobs, project_name, now) -> List[dict]:
                 if sample and code:
                     samples_indications[sample].append(code)
                 else:
-                    print("foo")
+                    print("missing sample or code...")
+                    print(sample, code)
             except Exception as exc:
                 # catch any errors that might get raised during querying
                 print(
@@ -266,6 +342,46 @@ def upload_manifest(manifest, path) -> str:
     return remote_file.id
 
 
+def create_folder(path) -> None:
+    """
+    Create folder for storing manifests
+
+    Parameters
+    ----------
+    path : str
+        folder to create
+    """
+    dxpy.bindings.dxproject.DXProject().new_folder(folder=path, parents=True)
+
+
+def date_to_datetime(date) -> int:
+    """
+    Turn date str from cmd line to integer of days ago from today
+
+    Parameters
+    ----------
+    date : str
+        date to calculate from
+
+    Returns
+    -------
+    int
+        n days ago from today
+    """
+    assert len(date) == 6 and re.match(
+        r"^2[3|4|5]", date
+    ), "Date provided does not seem valid"
+
+    # split parts of date out, removing leading 0 (required for datetime)
+    year, month, day = [
+        int(date[i : i + 2].lstrip("0")) for i in range(0, len(date), 2)
+    ]
+
+    start = datetime(year=int(f"20{year}"), month=month, day=day)
+
+    return (datetime.now() - start).days
+
+
 def run_batch(
     project, cnv_job, single_path, manifest, name, assay, terminate
 ) -> str:
@@ -317,44 +433,123 @@ def run_batch(
     return job.id
 
 
-def create_folder(path) -> None:
+def run_all_batch_jobs(args) -> list:
     """
-    Create folder for storing manifests
+    Main function to configure all inputs for running dias batch against
+    every 002 project in the specified date range
 
     Parameters
     ----------
-    path : str
-        folder to create
-    """
-    dxpy.bindings.dxproject.DXProject().new_folder(folder=path, parents=True)
-
-
-def date_to_datetime(date) -> int:
-    """
-    Turn date str from cmd line to integer of days ago from today
-
-    Parameters
-    ----------
-    date : str
-        date to calculate from
+    args : argparse.Namespace
+        parsed arguments from command line
 
     Returns
     -------
-    int
-        n days ago from today
+    list
+        list of launched job IDs
     """
-    assert len(date) == 6 and re.match(
-        r"^2[3|4|5]", date
-    ), "Date provided does not seem valid"
 
-    # split parts of date out, removing leading 0 (required for datetime)
-    year, month, day = [
-        int(date[i : i + 2].lstrip("0")) for i in range(0, len(date), 2)
-    ]
+    days = date_to_datetime(args.date)
 
-    start = datetime(year=int(f"20{year}"), month=month, day=day)
+    projects = get_projects(assay=args.assay, start=days)[5:10]
 
-    return (datetime.now() - start).days
+    now = datetime.now().strftime("%y%m%d_%H%M")
+
+    create_folder(path=f"/manifests/{now}")
+
+    launched_jobs = []
+
+    for idx, project in enumerate(projects):
+        print(
+            f"\nSearching {project['describe']['name']} for jobs "
+            f"({idx}/{len(projects)})"
+        )
+
+        single_path = get_single_dir(project=project["id"])
+        cnv_job = get_cnv_call_job(project=project["id"])
+        report_jobs = get_report_jobs(project=project["id"])
+
+        if not single_path and not cnv_job:
+            print('single path and / or cnv job not valid, skipping')
+            continue
+
+        if not report_jobs:
+            print(
+                f"No report jobs found in {project}, project will be "
+                "ignored as there is nothing to rerun"
+            )
+            continue
+
+        manifest = generate_manifest(
+            report_jobs=report_jobs,
+            project_name=project["describe"]["name"],
+            now=now,
+        )
+        manifest_id = upload_manifest(
+            manifest=manifest, path=f"/manifests/{now}"
+        )
+
+        # name for naming dias batch job
+        name = f"eggd_dias_batch_{project['describe']['name']}"
+
+        if args.testing:
+            # when testing run everything in one 003 project
+            batch_project = "project-Ggvgj6j45jXv43B84Vfzvgv6"
+        else:
+            batch_project = project["id"]
+
+        batch_id = run_batch(
+            project=batch_project,
+            cnv_job=cnv_job,
+            single_path=single_path,
+            manifest=manifest_id,
+            name=name,
+            assay=args.assay,
+            terminate=args.terminate,
+        )
+
+        launched_jobs.append(batch_id)
+
+        with open(f"launched_batch_jobs_{now}.log", "a") as fh:
+            fh.write(f"{batch_id}\n")
+
+    print(f"Launched {len(launched_jobs)} Dias batch jobs")
+
+    return launched_jobs
+
+
+def monitor_launched_jobs(job_ids) -> None:
+    """
+    Monitor launched Dias batch jobs to ensure all complete and alert
+    of any fails to investigate
+
+    Parameters
+    ----------
+    job_ids : list
+        list of job IDs
+    """
+    failed_jobs = []
+
+    print("Monitoring state of launched dias batch jobs...\n")
+
+    while job_ids:
+        job_states = get_job_states(job_ids)
+        printable_states = (
+            '\t'.join([
+                f"{x[0]}: {x[1]}" for x in Counter(job_states.values()).items()
+            ])
+        )
+
+        # separate failed and done to stop monitoring
+        failed = [k for k, v in job_states.items() if v == 'failed']
+        done = [k for k, v in job_states.items() if v == 'done']
+        failed_jobs.extend(failed)
+
+        job_ids = list(set(job_ids) - set(failed))
+        job_ids = list(set(job_ids) - set(done))
+
+        print(f"Waiting on {len(job_ids)} to complete ({printable_states})")
+        sleep(30)
 
 
 def parse_args() -> argparse.Namespace:
@@ -397,6 +592,14 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="Controls if to terminate all jobs dias batch launches",
     )
+    parser.add_argument(
+        '--monitor', type=bool,
+        default=True,
+        help=(
+            'Controls if to monitor and report on state of launched '
+            'dias batch jobs'
+        )
+    )
 
     return parser.parse_args()
 
@@ -404,58 +607,11 @@ def parse_args() -> argparse.Namespace:
 def main():
     args = parse_args()
 
-    days = date_to_datetime(args.date)
+    batch_ids = run_all_batch_jobs(args=args)
 
-    projects = get_projects(assay=args.assay, start=days)
+    if args.monitor:
+        monitor_launched_jobs(batch_ids)
 
-    now = datetime.now().strftime("%y%m%d_%H%M")
-
-    create_folder(path=f"/manifests/{now}")
-
-    for project in projects[5:]:
-        print(f"\nSearching {project['describe']['name']}...")
-
-        single_path = get_single_dir(project=project["id"])
-        cnv_job = get_cnv_call_job(project=project["id"])
-        report_jobs = get_report_jobs(project=project["id"])
-
-        if not report_jobs:
-            print(
-                f"No report jobs found in {project}, project will be "
-                "ignored as there is nothing to rerun"
-            )
-            continue
-
-        manifest = generate_manifest(
-            report_jobs=report_jobs,
-            project_name=project["describe"]["name"],
-            now=now,
-        )
-        manifest_id = upload_manifest(
-            manifest=manifest, path=f"/manifests/{now}"
-        )
-
-        # name for naming dias batch job
-        name = f"eggd_dias_batch_{project['describe']['name']}"
-
-        if args.testing:
-            # when testing run everything in one 003 project
-            batch_project = "project-Ggvgj6j45jXv43B84Vfzvgv6"
-        else:
-            batch_project = project["id"]
-
-        batch_id = run_batch(
-            project=batch_project,
-            cnv_job=cnv_job,
-            single_path=single_path,
-            manifest=manifest_id,
-            name=name,
-            assay=args.assay,
-            terminate=args.terminate,
-        )
-
-        with open(f"launched_batch_jobs_{now}.log", "w") as fh:
-            fh.write(f"{batch_id}\n")
 
 
 if __name__ == "__main__":
