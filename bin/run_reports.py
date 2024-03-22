@@ -445,7 +445,7 @@ def main():
         else:
             batch_project = project['id']
 
-        batch_job = run_batch(
+        batch_id = run_batch(
             project=batch_project,
             cnv_job=cnv_job,
             single_path=single_path,
@@ -455,7 +455,8 @@ def main():
             terminate=args.terminate
         )
 
-        break
+        with open(f"launched_batch_jobs_{now}.log", 'w') as fh:
+            fh.write(f"{batch_id}\n")
 
 if __name__ == "__main__":
     main()
