@@ -222,9 +222,9 @@ def get_sample_name_and_test_code(job_details) -> Union[str, str]:
 
     Returns
     -------
-    Union[str, None]
-        first 2 parts of sample name if file still exists, None if
-        the file has been deleted
+    str
+        first 2 parts of sample name
+
     """
     try:
         report_details = dxpy.describe(
@@ -235,16 +235,17 @@ def get_sample_name_and_test_code(job_details) -> Union[str, str]:
         return None, None
 
     sample = re.match(r"^[\w]+-[\w]+", report_details["name"]).group(0)
-    code = job_details["describe"]["runInput"]["clinical_indication"].split(
-        "_"
-    )[0]
+    indication = job_details["describe"]["runInput"]["clinical_indication"]
 
-    if bool(sample) ^ bool(code):
+    # parse out R codes and HGNC IDs from clinical indication string
+    codes = ','.join(re.findall(r"^[RC][\d]+\.[\d]+|_HGNC:[\d]+", indication))
+
+    if bool(sample) ^ bool(codes):
         print(job_details["describe"]["output"]["xlsx_report"]["$dnanexus_link"])
         print(job_details["describe"]["runInput"])
 
 
-    return sample, code
+    return sample, codes
 
 
 def generate_manifest(report_jobs, project_name, now) -> List[dict]:
