@@ -162,22 +162,11 @@ def get_job_states(job_ids) -> dict:
     """
     job_state = {}
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
-        concurrent_jobs = {
-            executor.submit(dxpy.describe, job) for job in job_ids
-        }
+    job_details = call_in_parallel(dxpy.describe, job_ids)
 
-        for future in concurrent.futures.as_completed(concurrent_jobs):
-            # access returned output as each is returned in any order
-            try:
-                details = future.result()
-
-                job_state[details['id']] = details['state']
-            except Exception as exc:
-                # catch any errors that might get raised during querying
-                print(
-                    f"Error getting data for {concurrent_jobs[future]}: {exc}"
-                )
+    job_state = {
+        job['id']: job['state'] for job in job_details
+    }
 
     return job_state
 
@@ -224,26 +213,15 @@ def get_launched_workflow_ids(batch_ids) -> list:
     list
         list of reports analysis IDs
     """
-    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
-        concurrent_jobs = {
-            executor.submit(dxpy.describe, job)
-            for job in batch_ids
-        }
+    details = call_in_parallel(func=dxpy.describe, items=batch_ids)
 
-        for future in concurrent.futures.as_completed(concurrent_jobs):
-            # access returned output as each is returned in any order
-            try:
-                describe = future.result()
-                reports = describe['output']['launched_jobs'].split(',')
+    # get the string of comma separated report IDs from every batch job
+    # and flatten to a single list
+    report_jobs = [x['output']['launched_jobs'] for x in details]
+    report_jobs = [jobs.split(',') for jobs in report_jobs]
+    report_jobs = [job for jobs in report_jobs for job in jobs]
 
-            except Exception as exc:
-                # catch any errors that might get raised during querying
-                print(
-                    f"Error getting data for {concurrent_jobs[future]}: {exc}"
-                )
-            return
-
-    return reports
+    return report_jobs
 
 
 def get_sample_name_and_test_code(job_details) -> Union[str, str]:
@@ -309,28 +287,14 @@ def generate_manifest(report_jobs, project_name, now) -> List[dict]:
     print(f"Generating manifest data from {len(report_jobs)} report jobs")
     samples_indications = defaultdict(list)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
-        concurrent_jobs = {
-            executor.submit(get_sample_name_and_test_code, job)
-            for job in report_jobs
-        }
+    sample_codes = call_in_parallel(
+        func=get_sample_name_and_test_code,
+        items=report_jobs
+    )
 
-        for future in concurrent.futures.as_completed(concurrent_jobs):
-            # access returned output as each is returned in any order
-            try:
-                sample, code = future.result()
-
-                if sample and code:
-                    samples_indications[sample].append(code)
-
-                if bool(sample) ^ bool(code):
-                    print("missing sample or code...")
-                    print(sample, code)
-            except Exception as exc:
-                # catch any errors that might get raised during querying
-                print(
-                    f"Error getting data for {concurrent_jobs[future]}: {exc}"
-                )
+    for sample, code in sample_codes:
+        if sample and code:
+            samples_indications[sample].append(code)
 
     # ensure we don't duplicate test codes for a sample
     samples_indications = {
@@ -384,6 +348,44 @@ def upload_manifest(manifest, path) -> str:
     os.remove(manifest)
 
     return remote_file.id
+
+
+def call_in_parallel(func, items) -> list:
+    """
+    Calls the given function in parallel using concurrent.futures on
+    the given set of items (i.e for calling dxpy.describe() on multiple
+    object IDs)
+
+    Parameters
+    ----------
+    func : callable
+        function to call on each item
+    items : list
+        list of items to call function on
+
+    Returns
+    -------
+    list
+        list of responses
+    """
+    results = []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+        concurrent_jobs = {
+            executor.submit(func, item) for item in items
+        }
+
+        for future in concurrent.futures.as_completed(concurrent_jobs):
+            # access returned output as each is returned in any order
+            try:
+                results.append(future.result())
+            except Exception as exc:
+                # catch any errors that might get raised during querying
+                print(
+                    f"Error getting data for {concurrent_jobs[future]}: {exc}"
+                )
+
+    return results
 
 
 def create_folder(path) -> None:
@@ -495,7 +497,7 @@ def run_all_batch_jobs(args) -> list:
 
     days = date_to_datetime(args.date)
 
-    projects = get_projects(assay=args.assay, start=days)[5:10]
+    projects = get_projects(assay=args.assay, start=days)[5:6]
 
     now = datetime.now().strftime("%y%m%d_%H%M")
 
@@ -503,7 +505,7 @@ def run_all_batch_jobs(args) -> list:
 
     launched_jobs = []
 
-    for idx, project in enumerate(projects):
+    for idx, project in enumerate(projects, 1):
         print(
             f"\nSearching {project['describe']['name']} for jobs "
             f"({idx}/{len(projects)})"
@@ -576,6 +578,7 @@ def monitor_launched_jobs(job_ids, mode) -> None:
     """
     failed_jobs = []
     completed_jobs = []
+    terminated_jobs = []
 
     if mode == 'batch':
         mode = 'dias batch jobs'
@@ -598,12 +601,15 @@ def monitor_launched_jobs(job_ids, mode) -> None:
             if v in ['failed', 'partially failed']
         ]
         done = [k for k, v in job_states.items() if v == 'done']
+        terminated = [k for k, v in job_states.items() if v == 'terminated']
 
         failed_jobs.extend(failed)
+        terminated_jobs.extend(terminated)
         completed_jobs.extend(done)
 
         job_ids = list(set(job_ids) - set(failed))
         job_ids = list(set(job_ids) - set(done))
+        job_ids = list(set(job_ids) - set(terminated))
 
         if not job_ids:
             break
@@ -677,7 +683,7 @@ def main():
 
     batch_job_ids = run_all_batch_jobs(args=args)
 
-    if args.monitor:
+    if args.monitor and batch_job_ids:
         monitor_launched_jobs(batch_job_ids, mode='batch')
 
         # monitor the launched reports workflows
