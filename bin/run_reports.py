@@ -583,7 +583,7 @@ def monitor_launched_jobs(job_ids, mode) -> None:
     if mode == 'batch':
         mode = 'dias batch jobs'
     else:
-        mode == 'dias reports workflows'
+        mode = 'dias reports workflows'
 
     print(f"\nMonitoring state of launched {mode}...\n")
 
