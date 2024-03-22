@@ -147,7 +147,7 @@ def get_cnv_call_job(project) -> str:
 
 def get_job_states(job_ids) -> dict:
     """
-    Query the state of given set of job IDs
+    Query the state of given set of job/analysis IDs
 
     Parameters
     ----------
@@ -207,6 +207,42 @@ def get_report_jobs(project) -> List[dict]:
     print(f"Found {len(jobs)} generate variant workbook jobs")
 
     return jobs
+
+
+def get_launched_workflow_ids(batch_ids) -> list:
+    """
+    Get analysis IDs of launched Dias reports
+
+    Parameters
+    ----------
+    batch_ids : list
+        list of dias batch job IDs to get launched reports workflows from
+
+    Returns
+    -------
+    list
+        list of reports analysis IDs
+    """
+    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+        concurrent_jobs = {
+            executor.submit(dxpy.describe, job)
+            for job in batch_ids
+        }
+
+        for future in concurrent.futures.as_completed(concurrent_jobs):
+            # access returned output as each is returned in any order
+            try:
+                describe = future.result()
+                reports = describe['output']['launched_jobs'].split(',')
+
+            except Exception as exc:
+                # catch any errors that might get raised during querying
+                print(
+                    f"Error getting data for {concurrent_jobs[future]}: {exc}"
+                )
+            return
+
+    return reports
 
 
 def get_sample_name_and_test_code(job_details) -> Union[str, str]:
@@ -525,20 +561,27 @@ def run_all_batch_jobs(args) -> list:
     return launched_jobs
 
 
-def monitor_launched_jobs(job_ids) -> None:
+def monitor_launched_jobs(job_ids, mode) -> None:
     """
-    Monitor launched Dias batch jobs to ensure all complete and alert
-    of any fails to investigate
+    Monitor launched Dias batch jobs or reports workflows to ensure all
+    complete and alert of any fails to investigate
 
     Parameters
     ----------
     job_ids : list
         list of job IDs
+    mode : str
+        string of batch or reports for prettier printing
     """
     failed_jobs = []
     completed_jobs = []
 
-    print("Monitoring state of launched dias batch jobs...\n")
+    if mode == 'batch':
+        mode = 'dias batch jobs'
+    else:
+        mode == 'dias reports workflows'
+
+    print(f"\nMonitoring state of launched {mode}...\n")
 
     while job_ids:
         job_states = get_job_states(job_ids)
@@ -549,7 +592,10 @@ def monitor_launched_jobs(job_ids) -> None:
         )
 
         # separate failed and done to stop monitoring
-        failed = [k for k, v in job_states.items() if v == 'failed']
+        failed = [
+            k for k, v in job_states.items()
+            if v in ['failed', 'partially failed']
+        ]
         done = [k for k, v in job_states.items() if v == 'done']
 
         failed_jobs.extend(failed)
@@ -561,7 +607,10 @@ def monitor_launched_jobs(job_ids) -> None:
         if not job_ids:
             break
 
-        print(f"Waiting on {len(job_ids)} to complete ({printable_states})")
+        print(
+            f"Waiting on {len(job_ids)} {mode} to "
+            f"complete ({printable_states})"
+        )
         sleep(30)
 
     print(
@@ -625,10 +674,14 @@ def parse_args() -> argparse.Namespace:
 def main():
     args = parse_args()
 
-    batch_ids = run_all_batch_jobs(args=args)
+    batch_job_ids = run_all_batch_jobs(args=args)
 
     if args.monitor:
-        monitor_launched_jobs(batch_ids)
+        monitor_launched_jobs(batch_job_ids, mode='batch')
+
+        # monitor the launched reports workflows
+        report_ids = get_launched_workflow_ids(batch_job_ids)
+        monitor_launched_jobs(report_ids, mode='reports')
 
 
 if __name__ == "__main__":
