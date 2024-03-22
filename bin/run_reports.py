@@ -529,6 +529,7 @@ def monitor_launched_jobs(job_ids) -> None:
         list of job IDs
     """
     failed_jobs = []
+    completed_jobs = []
 
     print("Monitoring state of launched dias batch jobs...\n")
 
@@ -543,13 +544,23 @@ def monitor_launched_jobs(job_ids) -> None:
         # separate failed and done to stop monitoring
         failed = [k for k, v in job_states.items() if v == 'failed']
         done = [k for k, v in job_states.items() if v == 'done']
+
         failed_jobs.extend(failed)
+        completed_jobs.extend(done)
 
         job_ids = list(set(job_ids) - set(failed))
         job_ids = list(set(job_ids) - set(done))
 
+        if not job_ids:
+            break
+
         print(f"Waiting on {len(job_ids)} to complete ({printable_states})")
         sleep(30)
+
+    print(
+        f"Stopping monitoring launched jobs:\n\t{len(completed_jobs)} "
+        f"completed\n\t{len(failed_jobs)} failed ({', '.join(failed_jobs)})"
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -611,7 +622,6 @@ def main():
 
     if args.monitor:
         monitor_launched_jobs(batch_ids)
-
 
 
 if __name__ == "__main__":
