@@ -239,6 +239,11 @@ def get_sample_name_and_test_code(job_details) -> Union[str, str]:
         "_"
     )[0]
 
+    if bool(sample) ^ bool(code):
+        print(job_details["describe"]["output"]["xlsx_report"]["$dnanexus_link"])
+        print(job_details["describe"]["runInput"])
+
+
     return sample, code
 
 
@@ -279,7 +284,8 @@ def generate_manifest(report_jobs, project_name, now) -> List[dict]:
 
                 if sample and code:
                     samples_indications[sample].append(code)
-                else:
+
+                if bool(sample) ^ bool(code):
                     print("missing sample or code...")
                     print(sample, code)
             except Exception as exc:
@@ -536,7 +542,7 @@ def monitor_launched_jobs(job_ids) -> None:
     while job_ids:
         job_states = get_job_states(job_ids)
         printable_states = (
-            '\t'.join([
+            ' | '.join([
                 f"{x[0]}: {x[1]}" for x in Counter(job_states.values()).items()
             ])
         )
