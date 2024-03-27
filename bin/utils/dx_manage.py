@@ -290,7 +290,7 @@ def upload_manifest(manifest, path) -> str:
         manifest, folder=path, wait_on_close=True
     )
 
-    # clean up our generated file
+    # clean up our generated local file
     os.remove(manifest)
 
     return remote_file.id
