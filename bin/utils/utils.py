@@ -59,7 +59,7 @@ def date_to_datetime(date) -> int:
         n days ago from today
     """
     assert len(date) == 6 and re.match(
-        r"^2[3|4|5]", date
+        r"^2[0-9]", date
     ), "Date provided does not seem valid"
 
     # split parts of date out, removing leading 0 (required for datetime)
@@ -67,7 +67,10 @@ def date_to_datetime(date) -> int:
         int(date[i : i + 2].lstrip("0")) for i in range(0, len(date), 2)
     ]
 
+    print(f"Parsed provided date string {date} -> {day}/{month}/20{year}")
+
     start = datetime(year=int(f"20{year}"), month=month, day=day)
 
-    return (datetime.now() - start).days
+    assert start < datetime.now(), "Provided date in the future"
 
+    return (datetime.now() - start).days

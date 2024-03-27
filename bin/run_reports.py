@@ -13,6 +13,7 @@ import dxpy
 
 from utils.dx_manage import (
     create_folder,
+    date_to_datetime,
     get_cnv_call_job,
     get_job_states,
     get_launched_workflow_ids,
