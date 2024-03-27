@@ -211,6 +211,7 @@ def get_sample_name_and_test_code(job_details) -> Union[str, str]:
     codes = ",".join(re.findall(r"^[RC][\d]+\.[\d]+|_HGNC:[\d]+", indication))
 
     if bool(sample) ^ bool(codes):
+        # TODO - remember what this was meant to be for
         print(
             job_details["describe"]["output"]["xlsx_report"]["$dnanexus_link"]
         )
