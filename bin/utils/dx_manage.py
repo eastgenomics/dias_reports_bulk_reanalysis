@@ -1,11 +1,14 @@
 """
 Functions relating to managing data objects an queries in DNAnexus
 """
+import os
 from pathlib import Path
 import re
 from typing import List, Union
 
 import dxpy
+
+from .utils import call_in_parallel
 
 
 def create_folder(path) -> None:
@@ -18,6 +21,7 @@ def create_folder(path) -> None:
         folder to create
     """
     dxpy.bindings.dxproject.DXProject().new_folder(folder=path, parents=True)
+
 
 def get_cnv_call_job(project) -> str:
     """
@@ -70,6 +74,7 @@ def get_cnv_call_job(project) -> str:
 
     return job_id
 
+
 def get_job_states(job_ids) -> dict:
     """
     Query the state of given set of job/analysis IDs
@@ -94,6 +99,7 @@ def get_job_states(job_ids) -> dict:
 
     return job_state
 
+
 def get_launched_workflow_ids(batch_ids) -> list:
     """
     Get analysis IDs of launched Dias reports
@@ -117,6 +123,7 @@ def get_launched_workflow_ids(batch_ids) -> list:
     report_jobs = [job for jobs in report_jobs for job in jobs]
 
     return report_jobs
+
 
 def get_projects(assay, start) -> List[dict]:
     """
@@ -144,6 +151,7 @@ def get_projects(assay, start) -> List[dict]:
 
     return projects
 
+
 def get_report_jobs(project) -> List[dict]:
     """
     Get the generate variant workbook jobs
@@ -170,6 +178,7 @@ def get_report_jobs(project) -> List[dict]:
     print(f"Found {len(jobs)} generate variant workbook jobs")
 
     return jobs
+
 
 def get_sample_name_and_test_code(job_details) -> Union[str, str]:
     """
@@ -208,6 +217,7 @@ def get_sample_name_and_test_code(job_details) -> Union[str, str]:
 
 
     return sample, codes
+
 
 def get_single_dir(project) -> str:
     """
@@ -258,6 +268,7 @@ def get_single_dir(project) -> str:
     print(f"Found Dias single path: {path}")
 
     return path
+
 
 def upload_manifest(manifest, path) -> str:
     """

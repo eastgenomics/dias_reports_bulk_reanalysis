@@ -6,6 +6,7 @@ with latest / specified assay config file
 import argparse
 from collections import Counter, defaultdict
 from datetime import datetime
+import json
 from time import sleep
 from typing import List
 
@@ -13,7 +14,6 @@ import dxpy
 
 from utils.dx_manage import (
     create_folder,
-    date_to_datetime,
     get_cnv_call_job,
     get_job_states,
     get_launched_workflow_ids,
@@ -23,6 +23,7 @@ from utils.dx_manage import (
     get_single_dir,
     upload_manifest
 )
+from utils.utils import date_to_datetime
 
 
 def generate_manifest(report_jobs, project_name, now) -> List[dict]:
@@ -310,6 +311,12 @@ def parse_args() -> argparse.Namespace:
         "--config", type=str, help="file ID of assay config file to use"
     )
     parser.add_argument(
+        "--batch_inputs", type='str', help=(
+            "JSON formatted string of additional inputs to pass to dias_batch "
+            "e.g. '{\"unarchive\": True}'"
+        )
+    )
+    parser.add_argument(
         "--testing",
         type=bool,
         default=True,
@@ -322,7 +329,7 @@ def parse_args() -> argparse.Namespace:
         "--terminate",
         type=bool,
         default=True,
-        help="Controls if to terminate all jobs dias batch launches",
+        help="Controls if to terminate all analysis jobs dias batch launches",
     )
     parser.add_argument(
         '--monitor', type=bool,
@@ -334,6 +341,56 @@ def parse_args() -> argparse.Namespace:
     )
 
     return parser.parse_args()
+
+
+def verify_batch_inputs_argument(args):
+    """
+    Verifies that the inputs provided to --batch_inputs are a valid JSON
+    string and that all are valid inputs to eggd_dias_batch app
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        parsed arguments
+
+    Returns
+    -------
+    argparse.Namespace
+        parsed arguments
+
+    Raises
+    ------
+    AssertionError
+        Raised if any of the given inputs are not valid dias_batch inputs
+    RuntimeError
+        Raised if not a valid JSON string
+    """
+    try:
+        args.batch_inputs = json.loads(args.batch_inputs)
+    except json.decoder.JSONDecodeError as exc:
+        raise RuntimeError(
+            "Failed to parse --batch_inputs as JSON string") from exc
+
+    valid_inputs = {
+        "assay_config_dir",
+        "cnv_call_job_id",
+        "exclude_samples",
+        "manifest_subset",
+        "qc_file",
+        "multiqc_report",
+        "assay_config_file",
+        "exclude_samples_file",
+        "exclude_controls",
+        "split_tests",
+        "sample_limit"
+        "unarchive",
+    }
+
+    invalid_inputs = set(args.batch_inputs.keys()) - valid_inputs
+
+    assert not invalid_inputs, (
+        f"Invalid inputs provided to --batch_inputs: {invalid_inputs}"
+    )
 
 
 def main():
