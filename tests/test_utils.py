@@ -1,7 +1,8 @@
 from datetime import datetime
-import pytest
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
+
+import pytest
 
 from bin.utils.utils import date_to_datetime
 
