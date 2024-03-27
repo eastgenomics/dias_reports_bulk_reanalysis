@@ -53,7 +53,10 @@ def get_cnv_call_job(project) -> str:
     if selected_jobs.get(project):
         job = selected_jobs.get(project)
 
-        print(f"Using specified CNV job: {job}")
+        print(
+            f"Using previously selected CNV job from project where multiple "
+            f"CNV calling jobs run {job}"
+        )
 
         return job
 
@@ -238,13 +241,17 @@ def get_single_dir(project) -> str:
     # have manually selected one
     # TODO - add this to config or something
     single_dirs = {
-        "project-GgXvB984QX3xF6qkPK4Kp5xx": "/output/CEN-240304_1257"
+        "project-GgXvB984QX3xF6qkPK4Kp5xx": "/output/CEN-240304_1257",
+        "project-Ggyb2G84zJ4363x2JqfGgb6J ": "/output/CEN-240322_0936"
     }
 
     if single_dirs.get(project):
         path = f"{project}:{single_dirs.get(project)}"
 
-        print(f"Using specified Dias single path: {path}")
+        print(
+            f"Using manually specified Dias single path where more than one "
+            f"exists in the project: {path}"
+        )
 
         return path
 
@@ -259,7 +266,7 @@ def get_single_dir(project) -> str:
 
     if len(files) > 1:
         # TODO handle which to choose, should just be one so far
-        print(f"More than single path found, multiqc files found")
+        print("More than one single output path found from multiqc reports")
         for x in files:
             print(x)
         return

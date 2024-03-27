@@ -26,7 +26,7 @@ class TestDateToDatetime(unittest.TestCase):
 
         calculated_days = date_to_datetime("230302")
 
-        assert calculated_days == 367, "time delate calculated incorrectly"
+        assert calculated_days == 367, "time delta calculated incorrectly"
 
     def test_invalid_date_strings_raise_assertion_error(self):
         """

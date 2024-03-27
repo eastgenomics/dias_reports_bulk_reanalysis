@@ -37,7 +37,7 @@ def generate_manifest(report_jobs, project_name, now) -> List[dict]:
     Parameters
     ----------
     report_jobs : list
-        list od dicts of describe details for each xlsx report
+        list of dicts of describe details for each xlsx report
     project_name : str
         name of project for naming manifest
     now : str
