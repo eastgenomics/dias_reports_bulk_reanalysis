@@ -65,6 +65,8 @@ def generate_manifest(report_jobs, project_name, now) -> List[dict]:
         for sample, codes in samples_indications.items()
     }
 
+    manifest = None
+
     if samples_indications:
         # found at least one sample report job to rerun
         manifest = f"{project_name}-{now}_re_run.manifest"
@@ -143,6 +145,12 @@ def run_all_batch_jobs(args) -> list:
             project_name=project["describe"]["name"],
             now=now,
         )
+
+        if not manifest:
+            # didn't generate any data to make a manifest file
+            print("No valid previous job data found to generate manifest file")
+            continue
+
         manifest_id = upload_manifest(
             manifest=manifest, path=f"/manifests/{now}"
         )
