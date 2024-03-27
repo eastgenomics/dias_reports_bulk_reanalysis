@@ -3,6 +3,7 @@ Script to search through 002 projects in a given date range to find
 previously run reports workflows and rerun dias_batch for these samples
 with latest / specified assay config file
 """
+
 import argparse
 from collections import Counter, defaultdict
 from datetime import datetime
@@ -21,7 +22,7 @@ from utils.dx_manage import (
     get_report_jobs,
     get_sample_name_and_test_code,
     get_single_dir,
-    upload_manifest
+    upload_manifest,
 )
 from utils.utils import date_to_datetime
 
@@ -51,8 +52,7 @@ def generate_manifest(report_jobs, project_name, now) -> List[dict]:
     samples_indications = defaultdict(list)
 
     sample_codes = call_in_parallel(
-        func=get_sample_name_and_test_code,
-        items=report_jobs
+        func=get_sample_name_and_test_code, items=report_jobs
     )
 
     for sample, code in sample_codes:
@@ -124,7 +124,7 @@ def run_all_batch_jobs(args) -> list:
         report_jobs = get_report_jobs(project=project["id"])
 
         if not single_path and not cnv_job:
-            print('single path and / or cnv job not valid, skipping')
+            print("single path and / or cnv job not valid, skipping")
             continue
 
         if not report_jobs:
@@ -239,28 +239,27 @@ def monitor_launched_jobs(job_ids, mode) -> None:
     completed_jobs = []
     terminated_jobs = []
 
-    if mode == 'batch':
-        mode = 'dias batch jobs'
+    if mode == "batch":
+        mode = "dias batch jobs"
     else:
-        mode = 'dias reports workflows'
+        mode = "dias reports workflows"
 
     print(f"\nMonitoring state of launched {mode}...\n")
 
     while job_ids:
         job_states = get_job_states(job_ids)
-        printable_states = (
-            ' | '.join([
-                f"{x[0]}: {x[1]}" for x in Counter(job_states.values()).items()
-            ])
+        printable_states = " | ".join(
+            [f"{x[0]}: {x[1]}" for x in Counter(job_states.values()).items()]
         )
 
         # split failed, terminated (when testing) and done to stop monitoring
         failed = [
-            k for k, v in job_states.items()
-            if v in ['failed', 'partially failed']
+            k
+            for k, v in job_states.items()
+            if v in ["failed", "partially failed"]
         ]
-        done = [k for k, v in job_states.items() if v == 'done']
-        terminated = [k for k, v in job_states.items() if v == 'terminated']
+        done = [k for k, v in job_states.items() if v == "done"]
+        terminated = [k for k, v in job_states.items() if v == "terminated"]
 
         failed_jobs.extend(failed)
         terminated_jobs.extend(terminated)
@@ -311,10 +310,12 @@ def parse_args() -> argparse.Namespace:
         "--config", type=str, help="file ID of assay config file to use"
     )
     parser.add_argument(
-        "--batch_inputs", type='str', help=(
+        "--batch_inputs",
+        type="str",
+        help=(
             "JSON formatted string of additional inputs to pass to dias_batch "
             "e.g. '{\"unarchive\": True}'"
-        )
+        ),
     )
     parser.add_argument(
         "--testing",
@@ -332,15 +333,19 @@ def parse_args() -> argparse.Namespace:
         help="Controls if to terminate all analysis jobs dias batch launches",
     )
     parser.add_argument(
-        '--monitor', type=bool,
+        "--monitor",
+        type=bool,
         default=True,
         help=(
-            'Controls if to monitor and report on state of launched '
-            'dias batch jobs'
-        )
+            "Controls if to monitor and report on state of launched "
+            "dias batch jobs"
+        ),
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    args = verify_batch_inputs_argument(args)
+
+    return args
 
 
 def verify_batch_inputs_argument(args):
@@ -369,7 +374,8 @@ def verify_batch_inputs_argument(args):
         args.batch_inputs = json.loads(args.batch_inputs)
     except json.decoder.JSONDecodeError as exc:
         raise RuntimeError(
-            "Failed to parse --batch_inputs as JSON string") from exc
+            "Failed to parse --batch_inputs as JSON string"
+        ) from exc
 
     valid_inputs = {
         "assay_config_dir",
@@ -382,15 +388,16 @@ def verify_batch_inputs_argument(args):
         "exclude_samples_file",
         "exclude_controls",
         "split_tests",
-        "sample_limit"
-        "unarchive",
+        "sample_limit" "unarchive",
     }
 
     invalid_inputs = set(args.batch_inputs.keys()) - valid_inputs
 
-    assert not invalid_inputs, (
-        f"Invalid inputs provided to --batch_inputs: {invalid_inputs}"
-    )
+    assert (
+        not invalid_inputs
+    ), f"Invalid inputs provided to --batch_inputs: {invalid_inputs}"
+
+    return args
 
 
 def main():
@@ -399,11 +406,11 @@ def main():
     batch_job_ids = run_all_batch_jobs(args=args)
 
     if args.monitor and batch_job_ids:
-        monitor_launched_jobs(batch_job_ids, mode='batch')
+        monitor_launched_jobs(batch_job_ids, mode="batch")
 
         # monitor the launched reports workflows
         report_ids = get_launched_workflow_ids(batch_job_ids)
-        monitor_launched_jobs(report_ids, mode='reports')
+        monitor_launched_jobs(report_ids, mode="reports")
 
 
 if __name__ == "__main__":
