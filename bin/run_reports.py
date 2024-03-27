@@ -24,7 +24,7 @@ from utils.dx_manage import (
     get_single_dir,
     upload_manifest,
 )
-from utils.utils import date_to_datetime
+from utils.utils import call_in_parallel, date_to_datetime
 
 
 def generate_manifest(report_jobs, project_name, now) -> List[dict]:
@@ -105,7 +105,11 @@ def run_all_batch_jobs(args) -> list:
 
     days = date_to_datetime(args.date)
 
-    projects = get_projects(assay=args.assay, start=days)[5:6]
+    projects = get_projects(assay=args.assay, start=days)
+
+    if args.limit:
+        print(f"Limiting rerunning jobs to {args.limit} runs")
+        projects = projects[: args.limit]
 
     now = datetime.now().strftime("%y%m%d_%H%M")
 
@@ -158,6 +162,7 @@ def run_all_batch_jobs(args) -> list:
             single_path=single_path,
             manifest=manifest_id,
             name=name,
+            batch_inputs=args.batch_inputs,
             assay=args.assay,
             terminate=args.terminate,
         )
@@ -173,7 +178,14 @@ def run_all_batch_jobs(args) -> list:
 
 
 def run_batch(
-    project, cnv_job, single_path, manifest, name, assay, terminate
+    project,
+    cnv_job,
+    single_path,
+    manifest,
+    name,
+    batch_inputs,
+    assay,
+    terminate,
 ) -> str:
     """
     Runs dias batch in the specified project
@@ -190,6 +202,8 @@ def run_batch(
         file ID of uploaded manifest
     name : str
         name to use for batch job
+    batch_inputs : dict
+        dict of additional inputs to provide to dias_batch
     assay : str
         assay running analysis for
     terminate : bool
@@ -213,6 +227,9 @@ def run_batch(
         "assay": assay,
         "testing": terminate,
     }
+
+    if batch_inputs:
+        app_input = {**app_input, **batch_inputs}
 
     job = dxpy.DXApp("app-GfG4Bf84QQg40v7Y6zKF34KP").run(
         app_input=app_input, project=project, name=name
@@ -307,15 +324,26 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--config", type=str, help="file ID of assay config file to use"
+        "--config",
+        type=str,
+        help=(
+            "file ID of assay config file to use, if not specified "
+            "will select latest from 001_Reference"
+        ),
     )
     parser.add_argument(
         "--batch_inputs",
-        type="str",
+        type=str,
         help=(
             "JSON formatted string of additional inputs to pass to dias_batch "
             "e.g. '{\"unarchive\": True}'"
         ),
+    )
+    parser.add_argument(
+        "--limit",
+        required=False,
+        type=int,
+        help="number of runs to limit running jobs for",
     )
     parser.add_argument(
         "--testing",
@@ -343,7 +371,9 @@ def parse_args() -> argparse.Namespace:
     )
 
     args = parser.parse_args()
-    args = verify_batch_inputs_argument(args)
+
+    if args.batch_inputs:
+        args = verify_batch_inputs_argument(args)
 
     return args
 
