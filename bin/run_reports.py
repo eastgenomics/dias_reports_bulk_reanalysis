@@ -23,6 +23,11 @@ from utils.dx_manage import (
     upload_manifest
 )
 
+from utils.utils import (
+    call_in_parallel,
+    date_to_datetime
+)
+
 
 def generate_manifest(report_jobs, project_name, now) -> List[dict]:
     """

@@ -1,11 +1,14 @@
 """
 Functions relating to managing data objects an queries in DNAnexus
 """
+import os
 from pathlib import Path
 import re
 from typing import List, Union
 
 import dxpy
+
+from utils.utils import call_in_parallel
 
 
 def create_folder(path) -> None:

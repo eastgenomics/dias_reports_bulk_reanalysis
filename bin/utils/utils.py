@@ -40,6 +40,7 @@ def call_in_parallel(func, items) -> list:
                 print(
                     f"Error getting data for {concurrent_jobs[future]}: {exc}"
                 )
+                raise exc
 
     return results
 
