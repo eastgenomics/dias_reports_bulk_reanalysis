@@ -3,9 +3,11 @@ Script to search through 002 projects in a given date range to find
 previously run reports workflows and rerun dias_batch for these samples
 with latest / specified assay config file
 """
+
 import argparse
 from collections import Counter, defaultdict
 from datetime import datetime
+import json
 from time import sleep
 from typing import List
 
@@ -20,8 +22,9 @@ from utils.dx_manage import (
     get_report_jobs,
     get_sample_name_and_test_code,
     get_single_dir,
-    upload_manifest
+    upload_manifest,
 )
+from utils.utils import call_in_parallel, date_to_datetime
 
 from utils.utils import (
     call_in_parallel,
@@ -39,7 +42,7 @@ def generate_manifest(report_jobs, project_name, now) -> List[dict]:
     Parameters
     ----------
     report_jobs : list
-        list od dicts of describe details for each xlsx report
+        list of dicts of describe details for each xlsx report
     project_name : str
         name of project for naming manifest
     now : str
@@ -54,8 +57,7 @@ def generate_manifest(report_jobs, project_name, now) -> List[dict]:
     samples_indications = defaultdict(list)
 
     sample_codes = call_in_parallel(
-        func=get_sample_name_and_test_code,
-        items=report_jobs
+        func=get_sample_name_and_test_code, items=report_jobs
     )
 
     for sample, code in sample_codes:
@@ -67,6 +69,8 @@ def generate_manifest(report_jobs, project_name, now) -> List[dict]:
         sample: list(set(codes))
         for sample, codes in samples_indications.items()
     }
+
+    manifest = None
 
     if samples_indications:
         # found at least one sample report job to rerun
@@ -108,7 +112,11 @@ def run_all_batch_jobs(args) -> list:
 
     days = date_to_datetime(args.date)
 
-    projects = get_projects(assay=args.assay, start=days)[5:6]
+    projects = get_projects(assay=args.assay, start=days)
+
+    if args.limit:
+        print(f"Limiting rerunning jobs to {args.limit} runs")
+        projects = projects[: args.limit]
 
     now = datetime.now().strftime("%y%m%d_%H%M")
 
@@ -127,7 +135,7 @@ def run_all_batch_jobs(args) -> list:
         report_jobs = get_report_jobs(project=project["id"])
 
         if not single_path and not cnv_job:
-            print('single path and / or cnv job not valid, skipping')
+            print("single path and / or cnv job not valid, skipping")
             continue
 
         if not report_jobs:
@@ -142,6 +150,12 @@ def run_all_batch_jobs(args) -> list:
             project_name=project["describe"]["name"],
             now=now,
         )
+
+        if not manifest:
+            # didn't generate any data to make a manifest file
+            print("No valid previous job data found to generate manifest file")
+            continue
+
         manifest_id = upload_manifest(
             manifest=manifest, path=f"/manifests/{now}"
         )
@@ -161,6 +175,7 @@ def run_all_batch_jobs(args) -> list:
             single_path=single_path,
             manifest=manifest_id,
             name=name,
+            batch_inputs=args.batch_inputs,
             assay=args.assay,
             terminate=args.terminate,
         )
@@ -176,7 +191,14 @@ def run_all_batch_jobs(args) -> list:
 
 
 def run_batch(
-    project, cnv_job, single_path, manifest, name, assay, terminate
+    project,
+    cnv_job,
+    single_path,
+    manifest,
+    name,
+    batch_inputs,
+    assay,
+    terminate,
 ) -> str:
     """
     Runs dias batch in the specified project
@@ -193,6 +215,8 @@ def run_batch(
         file ID of uploaded manifest
     name : str
         name to use for batch job
+    batch_inputs : dict
+        dict of additional inputs to provide to dias_batch
     assay : str
         assay running analysis for
     terminate : bool
@@ -216,6 +240,9 @@ def run_batch(
         "assay": assay,
         "testing": terminate,
     }
+
+    if batch_inputs:
+        app_input = {**app_input, **batch_inputs}
 
     job = dxpy.DXApp("app-GfG4Bf84QQg40v7Y6zKF34KP").run(
         app_input=app_input, project=project, name=name
@@ -242,28 +269,27 @@ def monitor_launched_jobs(job_ids, mode) -> None:
     completed_jobs = []
     terminated_jobs = []
 
-    if mode == 'batch':
-        mode = 'dias batch jobs'
+    if mode == "batch":
+        mode = "dias batch jobs"
     else:
-        mode = 'dias reports workflows'
+        mode = "dias reports workflows"
 
     print(f"\nMonitoring state of launched {mode}...\n")
 
     while job_ids:
         job_states = get_job_states(job_ids)
-        printable_states = (
-            ' | '.join([
-                f"{x[0]}: {x[1]}" for x in Counter(job_states.values()).items()
-            ])
+        printable_states = " | ".join(
+            [f"{x[0]}: {x[1]}" for x in Counter(job_states.values()).items()]
         )
 
         # split failed, terminated (when testing) and done to stop monitoring
         failed = [
-            k for k, v in job_states.items()
-            if v in ['failed', 'partially failed']
+            k
+            for k, v in job_states.items()
+            if v in ["failed", "partially failed"]
         ]
-        done = [k for k, v in job_states.items() if v == 'done']
-        terminated = [k for k, v in job_states.items() if v == 'terminated']
+        done = [k for k, v in job_states.items() if v == "done"]
+        terminated = [k for k, v in job_states.items() if v == "terminated"]
 
         failed_jobs.extend(failed)
         terminated_jobs.extend(terminated)
@@ -311,7 +337,26 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--config", type=str, help="file ID of assay config file to use"
+        "--config",
+        type=str,
+        help=(
+            "file ID of assay config file to use, if not specified "
+            "will select latest from 001_Reference"
+        ),
+    )
+    parser.add_argument(
+        "--batch_inputs",
+        type=str,
+        help=(
+            "JSON formatted string of additional inputs to pass to dias_batch "
+            "e.g. '{\"unarchive\": True}'"
+        ),
+    )
+    parser.add_argument(
+        "--limit",
+        required=False,
+        type=int,
+        help="number of runs to limit running jobs for",
     )
     parser.add_argument(
         "--testing",
@@ -326,18 +371,76 @@ def parse_args() -> argparse.Namespace:
         "--terminate",
         type=bool,
         default=True,
-        help="Controls if to terminate all jobs dias batch launches",
+        help="Controls if to terminate all analysis jobs dias batch launches",
     )
     parser.add_argument(
-        '--monitor', type=bool,
+        "--monitor",
+        type=bool,
         default=True,
         help=(
-            'Controls if to monitor and report on state of launched '
-            'dias batch jobs'
-        )
+            "Controls if to monitor and report on state of launched "
+            "dias batch jobs"
+        ),
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.batch_inputs:
+        args = verify_batch_inputs_argument(args)
+
+    return args
+
+
+def verify_batch_inputs_argument(args):
+    """
+    Verifies that the inputs provided to --batch_inputs are a valid JSON
+    string and that all are valid inputs to eggd_dias_batch app
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        parsed arguments
+
+    Returns
+    -------
+    argparse.Namespace
+        parsed arguments
+
+    Raises
+    ------
+    AssertionError
+        Raised if any of the given inputs are not valid dias_batch inputs
+    RuntimeError
+        Raised if not a valid JSON string
+    """
+    try:
+        args.batch_inputs = json.loads(args.batch_inputs)
+    except json.decoder.JSONDecodeError as exc:
+        raise RuntimeError(
+            "Failed to parse --batch_inputs as JSON string"
+        ) from exc
+
+    valid_inputs = {
+        "assay_config_dir",
+        "cnv_call_job_id",
+        "exclude_samples",
+        "manifest_subset",
+        "qc_file",
+        "multiqc_report",
+        "assay_config_file",
+        "exclude_samples_file",
+        "exclude_controls",
+        "split_tests",
+        "sample_limit" "unarchive",
+    }
+
+    invalid_inputs = set(args.batch_inputs.keys()) - valid_inputs
+
+    assert (
+        not invalid_inputs
+    ), f"Invalid inputs provided to --batch_inputs: {invalid_inputs}"
+
+    return args
 
 
 def main():
@@ -346,11 +449,11 @@ def main():
     batch_job_ids = run_all_batch_jobs(args=args)
 
     if args.monitor and batch_job_ids:
-        monitor_launched_jobs(batch_job_ids, mode='batch')
+        monitor_launched_jobs(batch_job_ids, mode="batch")
 
         # monitor the launched reports workflows
         report_ids = get_launched_workflow_ids(batch_job_ids)
-        monitor_launched_jobs(report_ids, mode='reports')
+        monitor_launched_jobs(report_ids, mode="reports")
 
 
 if __name__ == "__main__":

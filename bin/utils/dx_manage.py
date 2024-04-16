@@ -8,7 +8,7 @@ from typing import List, Union
 
 import dxpy
 
-from utils.utils import call_in_parallel
+from .utils import call_in_parallel
 
 
 def create_folder(path) -> None:
@@ -21,6 +21,7 @@ def create_folder(path) -> None:
         folder to create
     """
     dxpy.bindings.dxproject.DXProject().new_folder(folder=path, parents=True)
+
 
 def get_cnv_call_job(project) -> str:
     """
@@ -40,18 +41,21 @@ def get_cnv_call_job(project) -> str:
     # select the one we want to use output from
     # TODO - move this to a config
     selected_jobs = {
-        "project-GgZyg8j47Ky5z0vBG0JBB0QJ":	"job-Ggggppj47Ky46K2KZYyB7J3B",
-        "project-GgJ3gf04F80JY20Gjkp0QjF4":	"job-GgPYb984F80JZv63zG198VvZ",
-        "project-GZk71GQ446x5YQkjzvpYFBzB":	"job-GZq727Q446x28FQ74BkqBJx9",
-        "project-GZ3zJBj4X0Vy0b4Y20QyG1B2":	"job-GZ4q5VQ4X0Vz3jkP95Yb058J",
-        "project-GXZg37j4kgGxFZ29fj3f3Yp4":	"job-GXby1ZQ4kgGXQK7gyv506Xj9",
-        "project-GXZg0J04BXfPFFZYYFGz42bP":	"job-GXbyZ104BXf8G5296g93bvx2"
+        "project-GgZyg8j47Ky5z0vBG0JBB0QJ": "job-Ggggppj47Ky46K2KZYyB7J3B",
+        "project-GgJ3gf04F80JY20Gjkp0QjF4": "job-GgPYb984F80JZv63zG198VvZ",
+        "project-GZk71GQ446x5YQkjzvpYFBzB": "job-GZq727Q446x28FQ74BkqBJx9",
+        "project-GZ3zJBj4X0Vy0b4Y20QyG1B2": "job-GZ4q5VQ4X0Vz3jkP95Yb058J",
+        "project-GXZg37j4kgGxFZ29fj3f3Yp4": "job-GXby1ZQ4kgGXQK7gyv506Xj9",
+        "project-GXZg0J04BXfPFFZYYFGz42bP": "job-GXbyZ104BXf8G5296g93bvx2",
     }
 
     if selected_jobs.get(project):
         job = selected_jobs.get(project)
 
-        print(f"Using specified CNV job: {job}")
+        print(
+            f"Using previously selected CNV job from project where multiple "
+            f"CNV calling jobs run {job}"
+        )
 
         return job
 
@@ -63,7 +67,7 @@ def get_cnv_call_job(project) -> str:
 
     if len(jobs) > 1:
         # TODO handle multiple job IDs returned and None
-        print('more than one cnv job found')
+        print("more than one cnv job found")
         for x in jobs:
             print(x)
         return
@@ -72,6 +76,7 @@ def get_cnv_call_job(project) -> str:
     print(f"CNV job found: {job_id}")
 
     return job_id
+
 
 def get_job_states(job_ids) -> dict:
     """
@@ -91,11 +96,10 @@ def get_job_states(job_ids) -> dict:
 
     job_details = call_in_parallel(dxpy.describe, job_ids)
 
-    job_state = {
-        job['id']: job['state'] for job in job_details
-    }
+    job_state = {job["id"]: job["state"] for job in job_details}
 
     return job_state
+
 
 def get_launched_workflow_ids(batch_ids) -> list:
     """
@@ -115,11 +119,12 @@ def get_launched_workflow_ids(batch_ids) -> list:
 
     # get the string of comma separated report IDs from every batch job
     # and flatten to a single list
-    report_jobs = [x['output']['launched_jobs'] for x in details]
-    report_jobs = [jobs.split(',') for jobs in report_jobs]
+    report_jobs = [x["output"]["launched_jobs"] for x in details]
+    report_jobs = [jobs.split(",") for jobs in report_jobs]
     report_jobs = [job for jobs in report_jobs for job in jobs]
 
     return report_jobs
+
 
 def get_projects(assay, start) -> List[dict]:
     """
@@ -147,6 +152,7 @@ def get_projects(assay, start) -> List[dict]:
 
     return projects
 
+
 def get_report_jobs(project) -> List[dict]:
     """
     Get the generate variant workbook jobs
@@ -173,6 +179,7 @@ def get_report_jobs(project) -> List[dict]:
     print(f"Found {len(jobs)} generate variant workbook jobs")
 
     return jobs
+
 
 def get_sample_name_and_test_code(job_details) -> Union[str, str]:
     """
@@ -203,14 +210,17 @@ def get_sample_name_and_test_code(job_details) -> Union[str, str]:
     indication = job_details["describe"]["runInput"]["clinical_indication"]
 
     # parse out R codes and HGNC IDs from clinical indication string
-    codes = ','.join(re.findall(r"^[RC][\d]+\.[\d]+|_HGNC:[\d]+", indication))
+    codes = ",".join(re.findall(r"^[RC][\d]+\.[\d]+|_HGNC:[\d]+", indication))
 
     if bool(sample) ^ bool(codes):
-        print(job_details["describe"]["output"]["xlsx_report"]["$dnanexus_link"])
+        # TODO - remember what this was meant to be for
+        print(
+            job_details["describe"]["output"]["xlsx_report"]["$dnanexus_link"]
+        )
         print(job_details["describe"]["runInput"])
 
-
     return sample, codes
+
 
 def get_single_dir(project) -> str:
     """
@@ -230,13 +240,17 @@ def get_single_dir(project) -> str:
     # have manually selected one
     # TODO - add this to config or something
     single_dirs = {
-        "project-GgXvB984QX3xF6qkPK4Kp5xx": "/output/CEN-240304_1257"
+        "project-GgXvB984QX3xF6qkPK4Kp5xx": "/output/CEN-240304_1257",
+        "project-Ggyb2G84zJ4363x2JqfGgb6J ": "/output/CEN-240322_0936"
     }
 
     if single_dirs.get(project):
         path = f"{project}:{single_dirs.get(project)}"
 
-        print(f"Using specified Dias single path: {path}")
+        print(
+            f"Using manually specified Dias single path where more than one "
+            f"exists in the project: {path}"
+        )
 
         return path
 
@@ -251,7 +265,7 @@ def get_single_dir(project) -> str:
 
     if len(files) > 1:
         # TODO handle which to choose, should just be one so far
-        print(f'More than single path found, multiqc files found')
+        print("More than one single output path found from multiqc reports")
         for x in files:
             print(x)
         return
@@ -261,6 +275,7 @@ def get_single_dir(project) -> str:
     print(f"Found Dias single path: {path}")
 
     return path
+
 
 def upload_manifest(manifest, path) -> str:
     """
@@ -282,7 +297,7 @@ def upload_manifest(manifest, path) -> str:
         manifest, folder=path, wait_on_close=True
     )
 
-    # clean up our generated file
+    # clean up our generated local file
     os.remove(manifest)
 
     return remote_file.id
