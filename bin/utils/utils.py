@@ -6,6 +6,8 @@ import concurrent
 from datetime import datetime
 import re
 
+import pandas as pd
+
 
 def call_in_parallel(func, items) -> list:
     """
@@ -74,3 +76,41 @@ def date_to_datetime(date) -> int:
     assert start < datetime.now(), "Provided date in the future"
 
     return (datetime.now() - start).days
+
+
+def parse_clarity_export(export_file) -> list:
+    """
+    Parse the xlsx export from Clarity to get the samples and test codes
+
+    Parameters
+    ----------
+    export_file : str
+        file name of Clarity export to parse
+
+    Returns
+    -------
+    list
+        list of tuples of specimen ID and test code(s)
+    """
+    clarity_df = pd.read_excel(export_file)
+
+    clarity_df['Specimen Identifier'] = clarity_df[
+        'Specimen Identifier'].str.replace('SP-', '')
+
+    # remove any cancelled and pending samples
+    clarity_df = clarity_df[clarity_df['Test Validation Status'] == 'Resulted']
+
+    clarity_df = clarity_df[
+        clarity_df['Test Directory Clinical Indication'] != 'Research Use']
+
+    # generate list of specimen ID and test code
+    # TODO - need to figure out if to use the Clinical Indication column
+    # to get the test code from or the Test Code column, they seem to differ
+    # so need to know which is correct
+    samples_to_codes = clarity_df[[
+        'Specimen Identifier', 'Test Directory Clinical Indication'
+    ]].to_records(index=False).tolist()
+
+    return samples_to_codes
+
+
