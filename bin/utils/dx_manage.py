@@ -54,6 +54,7 @@ def check_archival_state(project, sample_data) -> list:
 
     file_details = []
 
+    #TODO - refactor this mess along with find_xlsx_reports()
     def _find(project, search_term):
         """Query given sample IDs in one go to find all files"""
         return list(dxpy.find_data_objects(
@@ -85,6 +86,8 @@ def check_archival_state(project, sample_data) -> list:
     # flatten the returned list of lists of sample data
     file_details = [x for y in file_details for x in y]
 
+
+    #TODO - return something useful from this on states
     print(f"Found {len(file_details)} files")
 
     l = set([x['describe']['archivalState'] for x in file_details])
