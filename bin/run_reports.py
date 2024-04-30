@@ -14,22 +14,85 @@ from typing import List
 import dxpy
 
 from utils.dx_manage import (
+    check_archival_state,
     create_folder,
     get_cnv_call_job,
     get_job_states,
     get_launched_workflow_ids,
     get_projects,
-    get_report_jobs,
-    get_sample_name_and_test_code,
+    get_xlsx_reports,
     get_single_dir,
     upload_manifest,
 )
-from utils.utils import call_in_parallel, date_to_datetime
+
 
 from utils.utils import (
     call_in_parallel,
-    date_to_datetime
+    filter_non_unique_specimen_ids,
+    group_samples_by_project,
+    parse_clarity_export,
+    parse_sample_identifiers
 )
+
+
+def configure_inputs(samples, assay):
+    """
+    Searches all 002 projects against given sample list to find
+    original project for each and
+
+    Parameters
+    ----------
+    samples : dict
+        mapping of specimen ID to list of test codes
+    """
+    projects = list(reversed(get_projects(assay=assay)))
+
+    manual_review = defaultdict(lambda: defaultdict(list))
+    print(list(samples.keys()))
+    reports = get_xlsx_reports(
+        all_samples=list(samples.keys()),
+        projects=projects
+    )
+
+    samples = parse_sample_identifiers(reports)
+    samples, non_unique_specimens = filter_non_unique_specimen_ids(samples)
+
+    project_samples = group_samples_by_project(samples=samples)
+
+    print(
+        f"{len(project_samples.keys())} projects retained with samples"
+        " to run reports for"
+    )
+
+    projects_to_skip = []
+
+    for project, project_data in project_samples.items():
+        cnv_jobs = get_cnv_call_job(project=project)
+        dias_single_paths = get_single_dir(project=project)
+
+        if len(cnv_jobs) > 1:
+            print('oh no - more than one cnv job found')
+            projects_to_skip.append(project)
+            #TODO - figure out what to do
+            continue
+        else:
+            project_samples[project]['cnv_call_job'] = cnv_jobs[0]
+
+        if len(dias_single_paths) > 1:
+            print('oh no - more than one single path found')
+            projects_to_skip.append(project)
+            continue
+        else:
+            project_samples[project]['dias_single_path'] = dias_single_paths[0]
+
+        check_archival_state(project=project, sample_data=project_data)
+
+    # remove any projects worth of samples with issues
+    for project in projects_to_skip:
+        project_samples.pop(project)
+
+
+    exit()
 
 
 def generate_manifest(report_jobs, project_name, now) -> List[dict]:
@@ -97,7 +160,7 @@ def generate_manifest(report_jobs, project_name, now) -> List[dict]:
 def run_all_batch_jobs(args) -> list:
     """
     Main function to configure all inputs for running dias batch against
-    every 002 project in the specified date range
+    every 002 project
 
     Parameters
     ----------
@@ -109,10 +172,7 @@ def run_all_batch_jobs(args) -> list:
     list
         list of launched job IDs
     """
-
-    days = date_to_datetime(args.date)
-
-    projects = get_projects(assay=args.assay, start=days)
+    projects = get_projects(assay=args.assay)
 
     if args.limit:
         print(f"Limiting rerunning jobs to {args.limit} runs")
@@ -199,7 +259,7 @@ def run_batch(
     batch_inputs,
     assay,
     terminate,
-) -> str:
+    ) -> str:
     """
     Runs dias batch in the specified project
 
@@ -327,14 +387,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "-a", "--assay", type=str, choices=["CEN", "TWE"], required=True
     )
-    parser.add_argument(
-        "-d",
-        "--date",
-        default="230614",
-        help=(
-            "Earliest date to search for 002 projects, should be in the form "
-            "YYMMDD"
-        ),
+    clarity = parser.add_mutually_exclusive_group(required=True)
+    clarity.add_argument(
+        "--clarity_export", type=str,help=(
+            'export from Clarity to parse samples from if not connecting'
+        )
+    )
+    clarity.add_argument(
+        "--clarity_connect", action="store_true", help=(
+            "controls if to connect to Clarity to retrieve samples awaiting "
+            "analysis and their respective test codes"
+        )
     )
     parser.add_argument(
         "--config",
@@ -445,6 +508,17 @@ def verify_batch_inputs_argument(args):
 
 def main():
     args = parse_args()
+
+    if args.clarity_connect:
+        pass
+    else:
+        samples_to_codes = parse_clarity_export(args.clarity_export)
+
+    configure_inputs(samples_to_codes, 'CEN')
+
+
+
+
 
     batch_job_ids = run_all_batch_jobs(args=args)
 

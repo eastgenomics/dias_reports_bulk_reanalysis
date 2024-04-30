@@ -1,6 +1,7 @@
 """
 Functions relating to managing data objects an queries in DNAnexus
 """
+import concurrent
 import os
 from pathlib import Path
 import re
@@ -9,6 +10,86 @@ from typing import List, Union
 import dxpy
 
 from .utils import call_in_parallel
+
+
+def check_archival_state(project, sample_data) -> list:
+    """
+    Check the archival state of all files in a project for the given
+    samples that will be required for running reports
+
+    Parameters
+    ----------
+    project : _type_
+        _description_
+    samples : _type_
+        _description_
+
+    Returns
+    -------
+    list
+        _description_
+    """
+    print("Checking archival state of required files")
+    sample_file_patterns = [
+        '_segments.vcf$',
+        '_copy_ratios.gcnv.bed$',
+        '_copy_ratios.gcnv.bed.tbi$',
+        '_markdup.per-base.bed.gz$',
+        '_markdup_recalibrated_Haplotyper.vcf.gz$',
+        '_markdup.reference_build.txt',
+        'bam$',
+        'bam.bai$'
+    ]
+
+    # build regex patterns of all files for all samples in blocks of 100
+    samples = list(set([x['sample'] for x in sample_data['samples']]))
+    sample_files = [f"{x}.*{y}" for x in samples for y in sample_file_patterns]
+
+    print(f"{len(samples)} samples to search for")
+    print(f"{len(sample_files)} files to find")
+
+    sample_files = [
+        sample_files[i:i + 100] for i in range(0, len(sample_files), 100)
+    ]
+
+    file_details = []
+
+    def _find(project, search_term):
+        """Query given sample IDs in one go to find all files"""
+        return list(dxpy.find_data_objects(
+            project=project,
+            name=rf'{"|".join(search_term)}',
+            name_mode='regexp',
+            describe={'fields': {'name': True, 'archivalState': True, 'createdBy': True}}
+        ))
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+        concurrent_jobs = {
+            executor.submit(_find, project, item)
+            for item in sample_files
+        }
+
+        for future in concurrent.futures.as_completed(concurrent_jobs):
+            # access returned output as each is returned in any order
+            try:
+                output = future.result()
+                file_details.append(output)
+
+            except Exception as exc:
+                # catch any errors that might get raised during querying
+                print(
+                    f"Error getting data for {future}: {exc}"
+                )
+                raise exc
+
+    # flatten the returned list of lists of sample data
+    file_details = [x for y in file_details for x in y]
+
+    print(f"Found {len(file_details)} files")
+
+    l = set([x['describe']['archivalState'] for x in file_details])
+
+    print(f"Archival state(s): {l}")
 
 
 def create_folder(path) -> None:
@@ -23,7 +104,7 @@ def create_folder(path) -> None:
     dxpy.bindings.dxproject.DXProject().new_folder(folder=path, parents=True)
 
 
-def get_cnv_call_job(project) -> str:
+def get_cnv_call_job(project) -> list:
     """
     Find CNV calling job in project
 
@@ -35,7 +116,7 @@ def get_cnv_call_job(project) -> str:
     Returns
     -------
     str
-        job ID of CNV calling job
+        list of CNV calling job IDs
     """
     # some projects have multiple (expected) CNV call jobs, manually
     # select the one we want to use output from
@@ -57,7 +138,7 @@ def get_cnv_call_job(project) -> str:
             f"CNV calling jobs run {job}"
         )
 
-        return job
+        return [job]
 
     jobs = list(
         dxpy.find_jobs(
@@ -65,17 +146,22 @@ def get_cnv_call_job(project) -> str:
         )
     )
 
-    if len(jobs) > 1:
-        # TODO handle multiple job IDs returned and None
-        print("more than one cnv job found")
-        for x in jobs:
-            print(x)
-        return
+    jobs = [x['id'] for x in jobs]
 
-    job_id = jobs[0]["id"]
-    print(f"CNV job found: {job_id}")
+    return jobs
 
-    return job_id
+
+def get_dependent_files(project_samples):
+    """
+    _summary_
+
+    Parameters
+    ----------
+    project_samples : _type_
+        _description_
+    """
+    for project, samples in project_samples.values():
+         pass
 
 
 def get_job_states(job_ids) -> dict:
@@ -126,9 +212,14 @@ def get_launched_workflow_ids(batch_ids) -> list:
     return report_jobs
 
 
-def get_projects(assay, start) -> List[dict]:
+def get_projects(assay) -> List[dict]:
     """
     Find 002 projects for given assay from given start date
+
+    Parameters
+    ----------
+    assay : str
+        assay to search for
 
     Returns
     -------
@@ -140,86 +231,78 @@ def get_projects(assay, start) -> List[dict]:
         dxpy.bindings.search.find_projects(
             name=f"002_*{assay}",
             name_mode="glob",
-            created_after=f"-{start}d",
             describe=True,
         ),
         key=lambda x: x["describe"]["name"],
     )
 
-    print(f"Found {len(projects)} projects in past {start} days")
-    print(f"Earliest project found: {projects[0]['describe']['name']}")
-    print(f"Latest project found: {projects[-1]['describe']['name']}")
+    print(f"Found {len(projects)} projects for {assay}")
 
     return projects
 
 
-def get_report_jobs(project) -> List[dict]:
+def get_xlsx_reports(all_samples, projects) -> list:
     """
-    Get the generate variant workbook jobs
+    _summary_
 
     Parameters
     ----------
-    project : str
-        project ID to search
+    samples : _type_
+        _description_
+    project : _type_
+        _description_
 
     Returns
     -------
     list
-        list of jobs details
+        _description_
     """
-    jobs = list(
-        dxpy.find_jobs(
+    def get_reports(project, samples):
+        """Query given sample IDs in one go to find all files"""
+        return list(dxpy.find_data_objects(
             project=project,
-            name="eggd_generate_variant_workbook",
-            state="done",
-            describe=True,
-        )
-    )
+            name=rf'.*({"|".join(samples)}).*xlsx',
+            name_mode='regexp',
+            describe={'fields': {'name': True, 'archivalState': True, 'createdBy': True}}
+        ))
 
-    print(f"Found {len(jobs)} generate variant workbook jobs")
+    print(f"Searching {len(projects)} projects for samples")
 
-    return jobs
+    # create chunks of 100 samples from our sample list for querying
+    all_samples = [
+        all_samples[i:i + 100] for i in range(0, len(all_samples), 100)
+    ]
 
+    all_reports = []
 
-def get_sample_name_and_test_code(job_details) -> Union[str, str]:
-    """
-    Get the sample name from the xlsx report output from the reports
-    job, if the file has been deleted then return None. Parse the test
-    code from the clinical indication input to the report job.
+    for project in projects:
+        project_reports = []
 
-    Parameters
-    ----------
-    job_details : dict
-        report job details
+        with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+            concurrent_jobs = {
+                executor.submit(get_reports, project['id'], item)
+                for item in all_samples
+            }
 
-    Returns
-    -------
-    str
-        first 2 parts of sample name
+            for future in concurrent.futures.as_completed(concurrent_jobs):
+                # access returned output as each is returned in any order
+                try:
+                    reports = future.result()
+                    project_reports.append(reports)
 
-    """
-    try:
-        report_details = dxpy.describe(
-            job_details["describe"]["output"]["xlsx_report"]["$dnanexus_link"]
-        )
-    except dxpy.exceptions.ResourceNotFound:
-        # file has been deleted, skip this sample -> clinical indication
-        return None, None
+                except Exception as exc:
+                    # catch any errors that might get raised during querying
+                    print(
+                        f"Error getting data for {future}: {exc}"
+                    )
+                    raise exc
 
-    sample = re.match(r"^[\w]+-[\w]+", report_details["name"]).group(0)
-    indication = job_details["describe"]["runInput"]["clinical_indication"]
+        # flatten the returned list of lists of sample data
+        project_reports = [x for y in project_reports for x in y]
+        all_reports.extend(project_reports)
+        print(f"Found {len(project_reports)} reports in project {project['id']}")
 
-    # parse out R codes and HGNC IDs from clinical indication string
-    codes = ",".join(re.findall(r"^[RC][\d]+\.[\d]+|_HGNC:[\d]+", indication))
-
-    if bool(sample) ^ bool(codes):
-        # TODO - remember what this was meant to be for
-        print(
-            job_details["describe"]["output"]["xlsx_report"]["$dnanexus_link"]
-        )
-        print(job_details["describe"]["runInput"])
-
-    return sample, codes
+    return all_reports
 
 
 def get_single_dir(project) -> str:
@@ -241,7 +324,7 @@ def get_single_dir(project) -> str:
     # TODO - add this to config or something
     single_dirs = {
         "project-GgXvB984QX3xF6qkPK4Kp5xx": "/output/CEN-240304_1257",
-        "project-Ggyb2G84zJ4363x2JqfGgb6J ": "/output/CEN-240322_0936"
+        "project-Ggyb2G84zJ4363x2JqfGgb6J": "/output/CEN-240322_0936"
     }
 
     if single_dirs.get(project):
@@ -252,8 +335,9 @@ def get_single_dir(project) -> str:
             f"exists in the project: {path}"
         )
 
-        return path
+        return [path]
 
+    # find Dias single output using multiQC report as a proxy
     files = list(
         dxpy.find_data_objects(
             project=project,
@@ -263,18 +347,13 @@ def get_single_dir(project) -> str:
         )
     )
 
-    if len(files) > 1:
-        # TODO handle which to choose, should just be one so far
-        print("More than one single output path found from multiqc reports")
-        for x in files:
-            print(x)
-        return
+    paths = [
+        f"{project}:{Path(x['describe']['folder']).parent}" for x in files
+    ]
 
-    path = f"{project}:{Path(files[0]['describe']['folder']).parent}"
+    print(f"Found Dias single path(s): {paths}")
 
-    print(f"Found Dias single path: {path}")
-
-    return path
+    return paths
 
 
 def upload_manifest(manifest, path) -> str:
