@@ -45,10 +45,10 @@ def configure_inputs(samples, assay):
     samples : dict
         mapping of specimen ID to list of test codes
     """
-    projects = list(reversed(get_projects(assay=assay)))
+    projects = list(reversed(get_projects(assay=assay)))[:5]
 
     manual_review = defaultdict(lambda: defaultdict(list))
-    print(list(samples.keys()))
+
     reports = get_xlsx_reports(
         all_samples=list(samples.keys()),
         projects=projects
@@ -73,7 +73,7 @@ def configure_inputs(samples, assay):
         if len(cnv_jobs) > 1:
             print('oh no - more than one cnv job found')
             projects_to_skip.append(project)
-            #TODO - figure out what to do
+            #TODO - figure out what to do, should we stop on any with issues?
             continue
         else:
             project_samples[project]['cnv_call_job'] = cnv_jobs[0]
@@ -85,9 +85,18 @@ def configure_inputs(samples, assay):
         else:
             project_samples[project]['dias_single_path'] = dias_single_paths[0]
 
-        check_archival_state(project=project, sample_data=project_data)
+        _, unarchiving, archived = check_archival_state(
+            project=project, sample_data=project_data
+        )
+
+        if unarchiving or archived:
+            # TODO -  figure out what to do with this projects worth of samples
+            print('Archived or unarchiving files present')
+            projects_to_skip.append(project)
+            continue
 
     # remove any projects worth of samples with issues
+    # TODO - figure out what / how to handle these for reviewing and resuming
     for project in projects_to_skip:
         project_samples.pop(project)
 

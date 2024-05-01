@@ -4,8 +4,7 @@ Functions relating to managing data objects an queries in DNAnexus
 import concurrent
 import os
 from pathlib import Path
-import re
-from typing import List, Union
+from typing import List
 
 import dxpy
 
@@ -30,6 +29,9 @@ def check_archival_state(project, sample_data) -> list:
         _description_
     """
     print("Checking archival state of required files")
+
+    # patterns of sample files required for SNV reports, CNV reports
+    # and Artemis
     sample_file_patterns = [
         '_segments.vcf$',
         '_copy_ratios.gcnv.bed$',
@@ -43,18 +45,19 @@ def check_archival_state(project, sample_data) -> list:
 
     # build regex patterns of all files for all samples in blocks of 100
     samples = list(set([x['sample'] for x in sample_data['samples']]))
-    sample_files = [f"{x}.*{y}" for x in samples for y in sample_file_patterns]
+    files = [f"{x}.*{y}" for x in samples for y in sample_file_patterns]
+    files.append(".*_excluded_intervals.bed")
 
     print(f"{len(samples)} samples to search for")
-    print(f"{len(sample_files)} files to find")
 
-    sample_files = [
-        sample_files[i:i + 100] for i in range(0, len(sample_files), 100)
+    files = [
+        files[i:i + 100] for i in range(0, len(files), 100)
     ]
 
     file_details = []
 
-    #TODO - refactor this mess along with find_xlsx_reports()
+    #TODO - refactor this mess along with find_xlsx_reports(), might be
+    # able to bodge it into the call_in_parallel function
     def _find(project, search_term):
         """Query given sample IDs in one go to find all files"""
         return list(dxpy.find_data_objects(
@@ -67,7 +70,7 @@ def check_archival_state(project, sample_data) -> list:
     with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
         concurrent_jobs = {
             executor.submit(_find, project, item)
-            for item in sample_files
+            for item in files
         }
 
         for future in concurrent.futures.as_completed(concurrent_jobs):
@@ -90,9 +93,16 @@ def check_archival_state(project, sample_data) -> list:
     #TODO - return something useful from this on states
     print(f"Found {len(file_details)} files")
 
-    l = set([x['describe']['archivalState'] for x in file_details])
+    live = [x for x in file_details if x['describe']['archivalState'] == 'live']
+    unarchiving = [x for x in file_details if x['describe']['archivalState'] == 'unarchiving']
+    archived = [x for x in file_details if x['describe']['archivalState'] == 'archived']
 
-    print(f"Archival state(s): {l}")
+    print(
+        f"Archival state(s): live {len(live)} | archived {len(archived)} | "
+        f"unarchiving {len(unarchiving)}"
+    )
+
+    return live, unarchiving, archived
 
 
 def create_folder(path) -> None:

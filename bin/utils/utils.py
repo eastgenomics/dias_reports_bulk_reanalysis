@@ -220,7 +220,6 @@ def parse_sample_identifiers(reports) -> list:
     list
         _description_
     """
-    print(reports)
     return [
         {   'project': x['project'],
             'sample': x['describe']['name'].split('_')[0],
