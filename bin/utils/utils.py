@@ -212,13 +212,13 @@ def parse_sample_identifiers(reports) -> list:
 
     Parameters
     ----------
-    reports : _type_
-        _description_
+    reports : list
+        list of file object dicts
 
     Returns
     -------
     list
-        _description_
+        list of dicts with required sample details
     """
     return [
         {   'project': x['project'],

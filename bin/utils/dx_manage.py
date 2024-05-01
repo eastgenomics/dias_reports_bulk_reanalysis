@@ -4,29 +4,33 @@ Functions relating to managing data objects an queries in DNAnexus
 import concurrent
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 import dxpy
 
 from .utils import call_in_parallel
 
 
-def check_archival_state(project, sample_data) -> list:
+def check_archival_state(project, sample_data) -> Union[list, list, list]:
     """
     Check the archival state of all files in a project for the given
     samples that will be required for running reports
 
     Parameters
     ----------
-    project : _type_
-        _description_
-    samples : _type_
-        _description_
+    project : list
+        list of project IDs to use as search scope
+    sample_data : list
+        list of dicts of per sample details to get samplename from
 
     Returns
     -------
     list
-        _description_
+        list of file objects in live state
+    list
+        list of file objects in unarchiving state
+    list
+        list of file objects in archived state
     """
     print("Checking archival state of required files")
 
@@ -166,7 +170,7 @@ def get_cnv_call_job(project) -> list:
 
 def get_dependent_files(project_samples):
     """
-    _summary_
+    TODO
 
     Parameters
     ----------
@@ -174,7 +178,7 @@ def get_dependent_files(project_samples):
         _description_
     """
     for project, samples in project_samples.values():
-         pass
+        pass
 
 
 def get_job_states(job_ids) -> dict:
@@ -256,19 +260,20 @@ def get_projects(assay) -> List[dict]:
 
 def get_xlsx_reports(all_samples, projects) -> list:
     """
-    _summary_
+    Return all xlsx report objects for the given samples across all the
+    given projects
 
     Parameters
     ----------
-    samples : _type_
-        _description_
-    project : _type_
-        _description_
+    samples : list
+        list of part of samplename to search for xlsx file for
+    projects : list
+        list of project IDs to search within
 
     Returns
     -------
     list
-        _description_
+        list of all xlsx file describe objects found
     """
     def get_reports(project, samples):
         """Query given sample IDs in one go to find all files"""
