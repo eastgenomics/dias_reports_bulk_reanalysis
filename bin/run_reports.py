@@ -104,7 +104,7 @@ def configure_inputs(samples_to_codes, assay):
         if len(cnv_jobs) > 1:
             print('oh no - more than one cnv job found')
             projects_to_skip.append(project_id)
-            #TODO - figure out what to do, should we stop on any with issues?
+            # TODO - figure out what to do, should we stop on any with issues?
             continue
         else:
             # add in CNV call job ID for current project
@@ -393,7 +393,7 @@ def parse_args() -> argparse.Namespace:
     )
     clarity = parser.add_mutually_exclusive_group(required=True)
     clarity.add_argument(
-        "--clarity_export", type=str,help=(
+        "--clarity_export", type=str, help=(
             'export from Clarity to parse samples from if not connecting'
         )
     )

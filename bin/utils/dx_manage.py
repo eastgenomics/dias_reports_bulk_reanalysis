@@ -60,7 +60,7 @@ def check_archival_state(project, sample_data) -> Union[list, list, list]:
 
     file_details = []
 
-    #TODO - refactor this mess along with find_xlsx_reports(), might be
+    # TODO - refactor this mess along with find_xlsx_reports(), might be
     # able to bodge it into the call_in_parallel function
     def _find(project, search_term):
         """Query given sample IDs in one go to find all files"""
@@ -94,7 +94,7 @@ def check_archival_state(project, sample_data) -> Union[list, list, list]:
     file_details = [x for y in file_details for x in y]
 
 
-    #TODO - return something useful from this on states
+    # TODO - return something useful from this on states
     print(f"Found {len(file_details)} files")
 
     live = [x for x in file_details if x['describe']['archivalState'] == 'live']

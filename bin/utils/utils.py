@@ -180,7 +180,7 @@ def add_test_codes_back_to_samples(sample_codes, project_samples) -> dict:
     dict
         per project sample data with test codes added
     """
-    project_samples_with_codes =  deepcopy(project_samples)
+    project_samples_with_codes = deepcopy(project_samples)
 
     for project_id, project_data in project_samples.items():
         for idx, sample_data in enumerate(project_data['samples']):
@@ -259,7 +259,8 @@ def parse_sample_identifiers(reports) -> list:
         list of dicts with required sample details
     """
     samples = [
-        {   'project': x['project'],
+        {
+            'project': x['project'],
             'sample': x['describe']['name'].split('_')[0],
             'instrument_id': x['describe']['name'].split('-')[0],
             'specimen_id': x['describe']['name'].split('-')[1]
