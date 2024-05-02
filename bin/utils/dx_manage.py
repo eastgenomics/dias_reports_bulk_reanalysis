@@ -255,6 +255,9 @@ def get_projects(assay) -> List[dict]:
 
     print(f"Found {len(projects)} projects for {assay}")
 
+    # turn list of projects to dict of id: describe
+    projects = {x['id']: x['describe'] for x in list(reversed(projects))[:3]}
+
     return projects
 
 
@@ -298,7 +301,7 @@ def get_xlsx_reports(all_samples, projects) -> list:
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
             concurrent_jobs = {
-                executor.submit(get_reports, project['id'], item)
+                executor.submit(get_reports, project, item)
                 for item in all_samples
             }
 
@@ -318,7 +321,7 @@ def get_xlsx_reports(all_samples, projects) -> list:
         # flatten the returned list of lists of sample data
         project_reports = [x for y in project_reports for x in y]
         all_reports.extend(project_reports)
-        print(f"Found {len(project_reports)} reports in project {project['id']}")
+        print(f"Found {len(project_reports)} reports in project {project}")
 
     return all_reports
 

@@ -2,6 +2,7 @@
 General utility functions
 """
 from collections import defaultdict
+from copy import deepcopy
 import concurrent
 from datetime import datetime
 import re
@@ -119,16 +120,19 @@ def filter_non_unique_specimen_ids(reports) -> Union[list, dict]:
     return unique, non_unique
 
 
-def group_samples_by_project(samples) -> dict:
+def group_samples_by_project(samples, projects) -> dict:
     """
     Group the list of sample reports by the project they are from.
 
     Returns as the structure: [
         {
             'project-xxx': {
+                'project_name': '002_240401_A01295_0334_XXYNSHDBDR',
                 'samples': [
                     {
-                        'id': 'file-xxx'
+                        'sample': '123456-23251R0047',
+                        'instrument_id': '123456',
+                        'specimen_id': '23251R0047'
                     }
                     ...
                 ]
@@ -153,11 +157,45 @@ def group_samples_by_project(samples) -> dict:
 
     for sample in samples:
         project_samples[sample['project']]['samples'].append(sample)
+        project_samples[sample['project']]['project_name'] = projects.get(
+            sample['project']).get('name')
 
     return {k: dict(v) for k, v in dict(project_samples).items()}
 
 
-# def match_test_codes_to_samples(project_samples)
+def add_test_codes_back_to_samples(sample_codes, project_samples) -> dict:
+    """
+    Add in the test codes as an additional key for each sample to the
+    project_samples dict
+
+    Parameters
+    ----------
+    sample_codes : dict
+        mapping of specimen ID to test codes from Clarity
+    project_samples : dict
+        per project sample data to add test codes to
+
+    Returns
+    -------
+    dict
+        per project sample data with test codes added
+    """
+    project_samples_with_codes =  deepcopy(project_samples)
+
+    for project_id, project_data in project_samples.items():
+        for idx, sample_data in enumerate(project_data['samples']):
+            codes = list(set(sample_codes.get(sample_data['specimen_id'])))
+
+            if not codes:
+                # this shouldn't happen since we've taken the specimen ID
+                # from the sample codes dict to make the project_samples dict
+                # TODO - do something here useful
+                print('oh no')
+
+            project_samples_with_codes[project_id]['samples'][idx]['codes'] = codes
+            print(project_samples_with_codes[project_id]['samples'][idx])
+
+    return project_samples_with_codes
 
 
 def parse_clarity_export(export_file) -> dict:
@@ -193,7 +231,7 @@ def parse_clarity_export(export_file) -> dict:
     # so need to know which is correct
     samples_to_codes = (clarity_df[[
         'Specimen Identifier', 'Test Directory Clinical Indication'
-    ]].to_records(index=False))
+    ]].to_records(index=False)).tolist()
 
     # generate mapping of specimen ID to list of test codes
     sample_code_mapping = defaultdict(list)
@@ -220,10 +258,15 @@ def parse_sample_identifiers(reports) -> list:
     list
         list of dicts with required sample details
     """
-    return [
+    samples = [
         {   'project': x['project'],
             'sample': x['describe']['name'].split('_')[0],
             'instrument_id': x['describe']['name'].split('-')[0],
             'specimen_id': x['describe']['name'].split('-')[1]
         } for x in reports
     ]
+
+    # ensure we don't have duplicates from multiple reports jobs
+    samples = [dict(s) for s in set(frozenset(d.items()) for d in samples)]
+
+    return samples
