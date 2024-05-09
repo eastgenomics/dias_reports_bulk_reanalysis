@@ -104,7 +104,7 @@ def configure_inputs(samples_to_codes, assay):
         if len(cnv_jobs) > 1:
             print('oh no - more than one cnv job found')
             projects_to_skip.append(project_id)
-            # TODO - figure out what to do, should we stop on any with issues?
+            #TODO - figure out what to do, should we stop on any with issues?
             continue
         else:
             # add in CNV call job ID for current project

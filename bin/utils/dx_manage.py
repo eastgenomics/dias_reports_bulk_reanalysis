@@ -42,7 +42,7 @@ def check_archival_state(project, sample_data) -> Union[list, list, list]:
         '_copy_ratios.gcnv.bed.tbi$',
         '_markdup.per-base.bed.gz$',
         '_markdup_recalibrated_Haplotyper.vcf.gz$',
-        '_markdup.reference_build.txt',
+        '_markdup.reference_build.txt$',
         'bam$',
         'bam.bai$'
     ]
