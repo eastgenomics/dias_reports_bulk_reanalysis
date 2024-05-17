@@ -345,7 +345,7 @@ def get_single_dir(project) -> str:
     # TODO - add this to config or something
     single_dirs = {
         "project-GgXvB984QX3xF6qkPK4Kp5xx": "/output/CEN-240304_1257",
-        "project-Ggyb2G84zJ4363x2JqfGgb6J": "/output/CEN-240322_0936"
+        "project-Ggyb2G84zJ4363x2JqfGgb6J": "/output/CEN-240322_0936",
     }
 
     if single_dirs.get(project):
