@@ -28,7 +28,6 @@ from utils.dx_manage import (
 
 from utils.utils import (
     add_test_codes_back_to_samples,
-    call_in_parallel,
     filter_non_unique_specimen_ids,
     group_samples_by_project,
     parse_config,
