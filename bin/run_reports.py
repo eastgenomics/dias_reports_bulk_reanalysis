@@ -31,6 +31,7 @@ from utils.utils import (
     call_in_parallel,
     filter_non_unique_specimen_ids,
     group_samples_by_project,
+    parse_config,
     parse_clarity_export,
     parse_sample_identifiers
 )
@@ -73,6 +74,8 @@ def configure_inputs(samples_to_codes, assay):
     dict
         mapping of all samples and their respective data per project
     """
+    manual_cnv_call_jobs, manual_dias_single_paths = parse_config()
+
     projects = get_projects(assay=assay)
 
     manual_review = defaultdict(lambda: defaultdict(list))
@@ -98,8 +101,14 @@ def configure_inputs(samples_to_codes, assay):
     projects_to_skip = []
 
     for project_id, project_data in project_samples.items():
-        cnv_jobs = get_cnv_call_job(project=project_id)
-        dias_single_paths = get_single_dir(project=project_id)
+        cnv_jobs = get_cnv_call_job(
+            project=project_id,
+            selected_jobs=manual_cnv_call_jobs
+        )
+        dias_single_paths = get_single_dir(
+            project=project_id,
+            selected_paths=manual_dias_single_paths
+        )
 
         if len(cnv_jobs) > 1:
             print('oh no - more than one cnv job found')
