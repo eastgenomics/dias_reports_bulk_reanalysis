@@ -152,12 +152,9 @@ def configure_inputs(samples_to_codes, assay):
     return project_samples
 
 
-def generate_manifest(project_name, sample_data, now) -> List[dict]:
+def write_manifest(project_name, sample_data, now) -> List[dict]:
     """
-    Generate data to build a manifest by querying the report jobs to get
-    the sample name from the output xlsx report and the test code from
-    the clinical indication input. This is then written to a file for
-    uploading to DNAnexus as input to dias_batch.
+    Write Epic manifest file of all samples for given project
 
     Parameters
     ----------
@@ -222,7 +219,7 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
 
     for project, project_data in all_sample_data.items():
 
-        manifest = generate_manifest(
+        manifest = write_manifest(
             sample_data=project_data['samples'],
             project_name=project_data['project_name'],
             now=now
