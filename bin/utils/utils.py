@@ -5,11 +5,12 @@ from collections import defaultdict
 from copy import deepcopy
 import concurrent
 from datetime import datetime
+import json
+from os import path
 import re
 
 import pandas as pd
 from typing import Union
-
 
 
 def call_in_parallel(func, items) -> list:
@@ -196,6 +197,33 @@ def add_test_codes_back_to_samples(sample_codes, project_samples) -> dict:
             print(project_samples_with_codes[project_id]['samples'][idx])
 
     return project_samples_with_codes
+
+
+def parse_config() -> Union[dict, dict]:
+    """
+    Parse config file of manually specified Dias single paths and CNV
+    call job IDs.
+
+    These are stored in configs/manually_selected.json, and are required
+    where more than one Dias single path / CNV call job is present for
+    a given project and cannot be unambiguously selected.
+
+    Returns
+    -------
+    dict
+        mapping of project IDs -> CNV call job IDs
+    dict
+        mapping of project IDs -> Dias single paths
+    """
+    config = path.abspath(path.join(
+        path.dirname(path.abspath(__file__)),
+        "../../configs/manually_selected.json"
+    ))
+
+    with open(config) as fh:
+        contents = json.load(fh)
+
+    return contents.get('cnv_call_jobs'), contents.get('dias_single_paths')
 
 
 def parse_clarity_export(export_file) -> dict:

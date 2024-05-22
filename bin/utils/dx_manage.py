@@ -121,7 +121,7 @@ def create_folder(path) -> None:
     dxpy.bindings.dxproject.DXProject().new_folder(folder=path, parents=True)
 
 
-def get_cnv_call_job(project) -> list:
+def get_cnv_call_job(project, selected_jobs) -> list:
     """
     Find CNV calling job in project
 
@@ -129,24 +129,15 @@ def get_cnv_call_job(project) -> list:
     ----------
     project : str
         project name to search
+    selected_jobs : dict
+        mapping of project ID to job ID of projects where multiple CNV
+        call jobs have been run and we have manually selected one
 
     Returns
     -------
     str
         list of CNV calling job IDs
     """
-    # some projects have multiple (expected) CNV call jobs, manually
-    # select the one we want to use output from
-    # TODO - move this to a config
-    selected_jobs = {
-        "project-GgZyg8j47Ky5z0vBG0JBB0QJ": "job-Ggggppj47Ky46K2KZYyB7J3B",
-        "project-GgJ3gf04F80JY20Gjkp0QjF4": "job-GgPYb984F80JZv63zG198VvZ",
-        "project-GZk71GQ446x5YQkjzvpYFBzB": "job-GZq727Q446x28FQ74BkqBJx9",
-        "project-GZ3zJBj4X0Vy0b4Y20QyG1B2": "job-GZ4q5VQ4X0Vz3jkP95Yb058J",
-        "project-GXZg37j4kgGxFZ29fj3f3Yp4": "job-GXby1ZQ4kgGXQK7gyv506Xj9",
-        "project-GXZg0J04BXfPFFZYYFGz42bP": "job-GXbyZ104BXf8G5296g93bvx2",
-    }
-
     if selected_jobs.get(project):
         job = selected_jobs.get(project)
 
@@ -326,7 +317,7 @@ def get_xlsx_reports(all_samples, projects) -> list:
     return all_reports
 
 
-def get_single_dir(project) -> str:
+def get_single_dir(project, selected_paths) -> str:
     """
     Find the Dias single output directory in the project
 
@@ -334,22 +325,17 @@ def get_single_dir(project) -> str:
     ----------
     project : str
         ID of project to check
+    selected_paths : dict
+        mapping of project ID to path where multiple Dias single attempts
+        have been run and we have manually selected one
 
     Returns
     -------
     str
         Dias single output path
     """
-    # project we know have more than one single output directory and
-    # have manually selected one
-    # TODO - add this to config or something
-    single_dirs = {
-        "project-GgXvB984QX3xF6qkPK4Kp5xx": "/output/CEN-240304_1257",
-        "project-Ggyb2G84zJ4363x2JqfGgb6J": "/output/CEN-240322_0936",
-    }
-
-    if single_dirs.get(project):
-        path = f"{project}:{single_dirs.get(project)}"
+    if selected_paths.get(project):
+        path = f"{project}:{selected_paths.get(project)}"
 
         print(
             f"Using manually specified Dias single path where more than one "

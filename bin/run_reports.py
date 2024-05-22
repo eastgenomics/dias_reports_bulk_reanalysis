@@ -28,9 +28,9 @@ from utils.dx_manage import (
 
 from utils.utils import (
     add_test_codes_back_to_samples,
-    call_in_parallel,
     filter_non_unique_specimen_ids,
     group_samples_by_project,
+    parse_config,
     parse_clarity_export,
     parse_sample_identifiers
 )
@@ -73,6 +73,8 @@ def configure_inputs(samples_to_codes, assay):
     dict
         mapping of all samples and their respective data per project
     """
+    manual_cnv_call_jobs, manual_dias_single_paths = parse_config()
+
     projects = get_projects(assay=assay)
 
     manual_review = defaultdict(lambda: defaultdict(list))
@@ -98,8 +100,14 @@ def configure_inputs(samples_to_codes, assay):
     projects_to_skip = []
 
     for project_id, project_data in project_samples.items():
-        cnv_jobs = get_cnv_call_job(project=project_id)
-        dias_single_paths = get_single_dir(project=project_id)
+        cnv_jobs = get_cnv_call_job(
+            project=project_id,
+            selected_jobs=manual_cnv_call_jobs
+        )
+        dias_single_paths = get_single_dir(
+            project=project_id,
+            selected_paths=manual_dias_single_paths
+        )
 
         if len(cnv_jobs) > 1:
             print('oh no - more than one cnv job found')
@@ -144,12 +152,9 @@ def configure_inputs(samples_to_codes, assay):
     return project_samples
 
 
-def generate_manifest(project_name, sample_data, now) -> List[dict]:
+def write_manifest(project_name, sample_data, now) -> List[dict]:
     """
-    Generate data to build a manifest by querying the report jobs to get
-    the sample name from the output xlsx report and the test code from
-    the clinical indication input. This is then written to a file for
-    uploading to DNAnexus as input to dias_batch.
+    Write Epic manifest file of all samples for given project
 
     Parameters
     ----------
@@ -214,7 +219,7 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
 
     for project, project_data in all_sample_data.items():
 
-        manifest = generate_manifest(
+        manifest = write_manifest(
             sample_data=project_data['samples'],
             project_name=project_data['project_name'],
             now=now
