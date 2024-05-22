@@ -14,25 +14,137 @@ from typing import List
 import dxpy
 
 from utils.dx_manage import (
+    check_archival_state,
     create_folder,
     get_cnv_call_job,
     get_job_states,
     get_launched_workflow_ids,
     get_projects,
-    get_report_jobs,
-    get_sample_name_and_test_code,
+    get_xlsx_reports,
     get_single_dir,
     upload_manifest,
 )
-from utils.utils import call_in_parallel, date_to_datetime
+
 
 from utils.utils import (
+    add_test_codes_back_to_samples,
     call_in_parallel,
-    date_to_datetime
+    filter_non_unique_specimen_ids,
+    group_samples_by_project,
+    parse_clarity_export,
+    parse_sample_identifiers
 )
 
 
-def generate_manifest(report_jobs, project_name, now) -> List[dict]:
+def configure_inputs(samples_to_codes, assay):
+    """
+    Searches all 002 projects against given sample list to find
+    original project for each, check the archivalState for all
+    required files and return big dict of all data.
+
+    Returned data structure will be:
+
+    {
+        "project-xxx": {
+            "project_name": "002_240401_A01295_0334_XXYNSHDBDR",
+            "cnv_call_job_id": "job-xxx",
+            "dias_single_path": "project-xxx:/output/CEN_240401_1105",
+            "samples": [
+                {
+                    "sample": "123456-23251R0047",
+                    "instrument_id": "123456",
+                    "specimen_id": "23251R0047",
+                    "codes": ["R211"]
+                },
+                ...
+            ]
+        }
+    }
+
+    Parameters
+    ----------
+    samples_to_codes : dict
+        mapping of specimen ID to list of test codes
+    assay : str
+        assay to run reports for
+
+    Returns
+    -------
+    dict
+        mapping of all samples and their respective data per project
+    """
+    projects = get_projects(assay=assay)
+
+    manual_review = defaultdict(lambda: defaultdict(list))
+
+    reports = get_xlsx_reports(
+        all_samples=list(samples_to_codes.keys()),
+        projects=projects.keys()
+    )
+
+    samples = parse_sample_identifiers(reports)
+    samples, non_unique_specimens = filter_non_unique_specimen_ids(samples)
+
+    project_samples = group_samples_by_project(
+        samples=samples,
+        projects=projects
+    )
+
+    print(
+        f"{len(project_samples.keys())} projects retained with samples"
+        " to run reports for"
+    )
+
+    projects_to_skip = []
+
+    for project_id, project_data in project_samples.items():
+        cnv_jobs = get_cnv_call_job(project=project_id)
+        dias_single_paths = get_single_dir(project=project_id)
+
+        if len(cnv_jobs) > 1:
+            print('oh no - more than one cnv job found')
+            projects_to_skip.append(project_id)
+            #TODO - figure out what to do, should we stop on any with issues?
+            continue
+        else:
+            # add in CNV call job ID for current project
+            project_samples[project_id]['cnv_call_job'] = cnv_jobs[0]
+
+        if len(dias_single_paths) > 1:
+            print('oh no - more than one single path found')
+            projects_to_skip.append(project_id)
+            continue
+        else:
+            # add in Dias single path for current project
+            project_samples[project_id]['dias_single_path'] = dias_single_paths[0]
+
+        _, unarchiving, archived = check_archival_state(
+            project=project_id, sample_data=project_data
+        )
+
+        if unarchiving or archived:
+            # TODO -  figure out what to do with this projects worth of samples
+            # where there are non-live files we require
+            print('Archived or unarchiving files present')
+            projects_to_skip.append(project_id)
+            continue
+
+    # remove any projects worth of samples with issues
+    # TODO - figure out what / how to handle these for reviewing and resuming,
+    # can probably pickle a load of data and resume from there
+    for project in projects_to_skip:
+        project_samples.pop(project)
+
+    # add back the test codes from Clarity for each sample
+    project_samples = add_test_codes_back_to_samples(
+        sample_codes=samples_to_codes,
+        project_samples=project_samples
+    )
+
+    return project_samples
+
+
+def generate_manifest(project_name, sample_data, now) -> List[dict]:
     """
     Generate data to build a manifest by querying the report jobs to get
     the sample name from the output xlsx report and the test code from
@@ -41,10 +153,10 @@ def generate_manifest(report_jobs, project_name, now) -> List[dict]:
 
     Parameters
     ----------
-    report_jobs : list
-        list of dicts of describe details for each xlsx report
     project_name : str
         name of project for naming manifest
+    sample_data : list
+        list of dicts of sample data (IDs and test code(s))
     now : str
         current datetime for naming
 
@@ -53,115 +165,67 @@ def generate_manifest(report_jobs, project_name, now) -> List[dict]:
     str
         file name of manifest generated
     """
-    print(f"Generating manifest data from {len(report_jobs)} report jobs")
-    samples_indications = defaultdict(list)
+    print(f"Generating manifest data for {len(sample_data)} samples")
 
-    sample_codes = call_in_parallel(
-        func=get_sample_name_and_test_code, items=report_jobs
-    )
+    manifest = f"{project_name}-{now}_re_run.manifest"
+    count = 0
 
-    for sample, code in sample_codes:
-        if sample and code:
-            samples_indications[sample].append(code)
+    with open(manifest, "w") as fh:
+        fh.write(
+            "batch\nInstrument ID;Specimen ID;Re-analysis Instrument ID;"
+            "Re-analysis Specimen ID;Test Codes\n"
+        )
 
-    # ensure we don't duplicate test codes for a sample
-    samples_indications = {
-        sample: list(set(codes))
-        for sample, codes in samples_indications.items()
-    }
+        for sample in sample_data:
+            for code in sample['codes']:
+                fh.write(
+                    f"{sample['instrument_id']};{sample['specimen_id']}"
+                    f";;;{code}\n"
+                )
+                count += 1
 
-    manifest = None
-
-    if samples_indications:
-        # found at least one sample report job to rerun
-        manifest = f"{project_name}-{now}_re_run.manifest"
-
-        count = 0
-
-        with open(manifest, "w") as fh:
-            fh.write(
-                "batch\nInstrument ID;Specimen ID;Re-analysis Instrument ID;"
-                "Re-analysis Specimen ID;Test Codes\n"
-            )
-
-            for sample, codes in samples_indications.items():
-                for code in codes:
-                    fh.write(f"{sample.replace('-', ';')};;;{code}\n")
-                    count += 1
-
-    print(f"{count} sample - test codes written to manifest")
+    print(f"{count} sample - test codes written to file {manifest}")
 
     return manifest
 
 
-def run_all_batch_jobs(args) -> list:
+def run_all_batch_jobs(args, all_sample_data) -> list:
     """
     Main function to configure all inputs for running dias batch against
-    every 002 project in the specified date range
+    every 002 project
 
     Parameters
     ----------
     args : argparse.Namespace
         parsed arguments from command line
+    all_sample_data : dict
+        mapping of project ID to all sample data required
 
     Returns
     -------
     list
         list of launched job IDs
     """
-
-    days = date_to_datetime(args.date)
-
-    projects = get_projects(assay=args.assay, start=days)
-
-    if args.limit:
-        print(f"Limiting rerunning jobs to {args.limit} runs")
-        projects = projects[: args.limit]
-
     now = datetime.now().strftime("%y%m%d_%H%M")
 
     create_folder(path=f"/manifests/{now}")
 
     launched_jobs = []
 
-    for idx, project in enumerate(projects, 1):
-        print(
-            f"\nSearching {project['describe']['name']} for jobs "
-            f"({idx}/{len(projects)})"
-        )
-
-        single_path = get_single_dir(project=project["id"])
-        cnv_job = get_cnv_call_job(project=project["id"])
-        report_jobs = get_report_jobs(project=project["id"])
-
-        if not single_path and not cnv_job:
-            print("single path and / or cnv job not valid, skipping")
-            continue
-
-        if not report_jobs:
-            print(
-                f"No report jobs found in {project}, project will be "
-                "ignored as there is nothing to rerun"
-            )
-            continue
+    for project, project_data in all_sample_data.items():
 
         manifest = generate_manifest(
-            report_jobs=report_jobs,
-            project_name=project["describe"]["name"],
-            now=now,
+            sample_data=project_data['samples'],
+            project_name=project_data['project_name'],
+            now=now
         )
-
-        if not manifest:
-            # didn't generate any data to make a manifest file
-            print("No valid previous job data found to generate manifest file")
-            continue
 
         manifest_id = upload_manifest(
             manifest=manifest, path=f"/manifests/{now}"
         )
 
         # name for naming dias batch job
-        name = f"eggd_dias_batch_{project['describe']['name']}"
+        name = f"eggd_dias_batch_{project['project_name']}"
 
         if args.testing:
             # when testing run everything in one 003 project
@@ -171,13 +235,13 @@ def run_all_batch_jobs(args) -> list:
 
         batch_id = run_batch(
             project=batch_project,
-            cnv_job=cnv_job,
-            single_path=single_path,
+            cnv_job=project_data['cnv_call_job_id'],
+            single_path=project_data['dias_single_path'],
             manifest=manifest_id,
             name=name,
             batch_inputs=args.batch_inputs,
             assay=args.assay,
-            terminate=args.terminate,
+            terminate=args.terminate
         )
 
         launched_jobs.append(batch_id)
@@ -199,7 +263,7 @@ def run_batch(
     batch_inputs,
     assay,
     terminate,
-) -> str:
+    ) -> str:
     """
     Runs dias batch in the specified project
 
@@ -327,14 +391,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "-a", "--assay", type=str, choices=["CEN", "TWE"], required=True
     )
-    parser.add_argument(
-        "-d",
-        "--date",
-        default="230614",
-        help=(
-            "Earliest date to search for 002 projects, should be in the form "
-            "YYMMDD"
-        ),
+    clarity = parser.add_mutually_exclusive_group(required=True)
+    clarity.add_argument(
+        "--clarity_export", type=str, help=(
+            'export from Clarity to parse samples from if not connecting'
+        )
+    )
+    clarity.add_argument(
+        "--clarity_connect", action="store_true", help=(
+            "controls if to connect to Clarity to retrieve samples awaiting "
+            "analysis and their respective test codes"
+        )
     )
     parser.add_argument(
         "--config",
@@ -446,7 +513,14 @@ def verify_batch_inputs_argument(args):
 def main():
     args = parse_args()
 
-    batch_job_ids = run_all_batch_jobs(args=args)
+    if args.clarity_connect:
+        pass
+    else:
+        samples_to_codes = parse_clarity_export(args.clarity_export)
+
+    sample_data = configure_inputs(samples_to_codes, 'CEN')
+
+    batch_job_ids = run_all_batch_jobs(args=args, all_sample_data=sample_data)
 
     if args.monitor and batch_job_ids:
         monitor_launched_jobs(batch_job_ids, mode="batch")
