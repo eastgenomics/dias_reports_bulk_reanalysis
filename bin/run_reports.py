@@ -119,6 +119,8 @@ def configure_inputs(samples_to_codes, assay, limit, start_date, end_date):
         projects=projects
     )
 
+    exit()
+
     projects_to_skip = []
 
     for project_id, project_data in project_samples.items():

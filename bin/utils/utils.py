@@ -289,9 +289,10 @@ def limit_samples(samples, limit, start, end) -> dict:
     samples = sorted(samples, key=lambda d: d['date'])
 
     for sample in samples:
-        if selected_samples >= limit:
-            print(f"Hit limit of {limit} samples to retain")
-            break
+        if limit:
+            if selected_samples >= limit:
+                print(f"Hit limit of {limit} samples to retain")
+                break
 
         if not start <= sample['date'] <= end:
             continue
