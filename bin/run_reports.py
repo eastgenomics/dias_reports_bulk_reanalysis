@@ -199,7 +199,7 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
                     "an archived state"
                 )
 
-        if [x.get('archived') for x in manual_review.values()]:
+        if unarchive and [x.get('archived') for x in manual_review.values()]:
             unarchive_files(
                 project_files={
                     k: v['archived'] for k, v in manual_review.items()
