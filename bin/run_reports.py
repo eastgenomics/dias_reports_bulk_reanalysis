@@ -145,7 +145,7 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date):
             continue
         else:
             # add in CNV call job ID for current project
-            project_samples[project_id]['cnv_call_job'] = cnv_jobs[0]
+            project_samples[project_id]['cnv_call_job_id'] = cnv_jobs[0]
 
         if len(dias_single_paths) > 1:
             print('oh no - more than one single path found')
