@@ -476,8 +476,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--testing",
-        type=bool,
-        default=True,
+        action='store_true',
+        default=False,
         help=(
             "Controls where dias batch is run, when testing launch all in "
             "one 003 project"
@@ -485,8 +485,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--terminate",
-        type=bool,
-        default=True,
+        action='store_true',
+        default=False,
         help="Controls if to terminate all analysis jobs dias batch launches",
     )
     parser.add_argument(
@@ -503,6 +503,9 @@ def parse_args() -> argparse.Namespace:
 
     if args.batch_inputs:
         args = verify_batch_inputs_argument(args)
+
+    input_str = '\n\t'.join(f"{k} : {v}" for k, v in args.__dict__.items())
+    print(f"Specified arguments:\n\t{input_str}\n")
 
     return args
 
@@ -575,11 +578,11 @@ def main():
         end_date=args.end_date
     )
 
+    print(
+        f"\nConfirm running reports for all samples in "
+        f"{TEST_PROJECT if args.testing else 'original 002 projects'}"
+    )
     while True:
-        print(
-            f"Confirm running reports for all samples in "
-            f"{TEST_PROJECT if args.testing else 'original 002 projects'}"
-        )
         confirm = input('Run jobs? ')
 
         if confirm.lower() in ['y', 'yes']:
