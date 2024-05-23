@@ -589,7 +589,7 @@ def main():
             print("Stopping now.")
             exit()
         else:
-            print("Invalid response")
+            print("Invalid response, please enter 'y' or 'n'")
 
     batch_job_ids = run_all_batch_jobs(args=args, all_sample_data=sample_data)
 
