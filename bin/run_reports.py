@@ -23,6 +23,7 @@ from utils.dx_manage import (
     get_xlsx_reports,
     get_single_dir,
     upload_manifest,
+    read_genepanels_file
 )
 
 
@@ -34,7 +35,8 @@ from utils.utils import (
     limit_samples,
     parse_config,
     parse_clarity_export,
-    parse_sample_identifiers
+    parse_sample_identifiers,
+    validate_test_codes
 )
 
 
@@ -116,6 +118,14 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date):
             start=start_date,
             end=end_date
         )
+
+    genepanels = read_genepanels_file()
+    validate_test_codes(
+        all_sample_data=samples,
+        genepanels=genepanels
+    )
+
+    exit()
 
     project_samples = group_samples_by_project(
         samples=samples,
