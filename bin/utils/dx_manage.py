@@ -116,7 +116,13 @@ def find_in_parallel(project, items, prefix='', suffix='') -> list:
             project=project,
             name=rf'{prefix}{"|".join(search_term)}{suffix}',
             name_mode='regexp',
-            describe={'fields': {'name': True, 'archivalState': True, 'createdBy': True}}
+            describe={
+                'fields': {
+                    'name': True,
+                    'archivalState': True,
+                    'createdBy': True
+                }
+            }
         ))
 
     results = []
