@@ -100,28 +100,23 @@ def configure_inputs(samples_to_codes, assay, limit, start_date, end_date):
         samples_w_reports=samples
     )
 
-    project_samples = group_samples_by_project(
+    # add back the test codes and booked date from Clarity for each sample
+    samples = add_clarity_data_back_to_samples(
         samples=samples,
-        projects=projects
-    )
-
-    # add back the test codes from Clarity for each sample
-    project_samples = add_clarity_data_back_to_samples(
-        sample_codes=samples_to_codes,
-        project_samples=project_samples
+        clarity_data=samples_to_codes
     )
 
     if any([limit, start_date, end_date]):
-        project_samples = limit_samples(
-            projects_samples=project_samples,
+        samples = limit_samples(
+            samples=samples,
             limit=limit,
             start=start_date,
             end=end_date
         )
 
-    print(
-        f"{len(project_samples.keys())} projects retained with samples"
-        " to run reports for"
+    project_samples = group_samples_by_project(
+        samples=samples,
+        projects=projects
     )
 
     projects_to_skip = []

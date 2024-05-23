@@ -164,7 +164,9 @@ def group_samples_by_project(samples, projects) -> dict:
                 {
                     'sample': '123456-23251R0047',
                     'instrument_id': '123456',
-                    'specimen_id': '23251R0047'
+                    'specimen_id': '23251R0047',
+                    'codes': ['R134'],
+                    'date': datetime(2023, 9, 22, 0, 0)
                 }
                 ...
             ]
@@ -189,61 +191,68 @@ def group_samples_by_project(samples, projects) -> dict:
     """
     project_samples = defaultdict(lambda: defaultdict(list))
 
+    print(len(samples))
+
     for sample in samples:
         project_samples[sample['project']]['samples'].append(sample)
         project_samples[sample['project']]['project_name'] = projects.get(
             sample['project']).get('name')
 
+    print(
+        f"{len(samples)} samples present in {len(project_samples.keys())} "
+        "DNAnexus projects to run reports for"
+    )
+
     return {k: dict(v) for k, v in dict(project_samples).items()}
 
 
-def add_clarity_data_back_to_samples(sample_codes, project_samples) -> dict:
+def add_clarity_data_back_to_samples(samples, clarity_data) -> list:
     """
     Add in the test codes and date as additional keys for each sample
-    to the project_samples dict
 
     Parameters
     ----------
-    sample_codes : dict
+    samples : list
+        sample data returned from reports jobs
+    clarity_data : dict
         mapping of specimen ID to test codes and date from Clarity
-    project_samples : dict
-        per project sample data to add test codes to
 
     Returns
     -------
-    dict
-        per project sample data with test codes and date added
+    list
+        list of sample info with test codes and date added from Clarity
     """
-    project_samples_with_codes = deepcopy(project_samples)
+    merged_sample_data = []
 
-    for project_id, project_data in project_samples.items():
-        for idx, sample_data in enumerate(project_data['samples']):
-            codes = list(set(
-                sample_codes.get(sample_data['specimen_id']).get('codes')
-            ))
-            date = sample_codes.get(sample_data['specimen_id']).get('date')
+    for sample in samples:
+        codes = list(set(
+            clarity_data.get(sample['specimen_id']).get('codes')
+        ))
+        date = clarity_data.get(sample['specimen_id']).get('date')
 
-            if not codes:
-                # this shouldn't happen since we've taken the specimen ID
-                # from the sample codes dict to make the project_samples dict
-                # TODO - do something here useful
-                print('oh no')
+        if not codes:
+            # this shouldn't happen since we've taken the specimen ID
+            # from the sample codes dict to make the project_samples dict
+            # TODO - do something here useful
+            print('oh no')
 
-            project_samples_with_codes[project_id]['samples'][idx]['codes'] = codes
-            project_samples_with_codes[project_id]['samples'][idx]['date'] = date
+        sample['codes'] = codes
+        sample['date'] = date
 
-    return project_samples_with_codes
+        merged_sample_data.append(sample)
+
+    return merged_sample_data
 
 
-def limit_samples(projects_samples, limit, start, end) -> dict:
+def limit_samples(samples, limit, start, end) -> dict:
     """
-    Limits the number of samples retained in the mapping of project ->
-    sample lists to run jobs for
+    Limits the number of samples retained by integer and / or range of
+    dates
 
     Parameters
     ----------
-    projects_samples : dict
-        mapping of project ID to sample lists
+    samples : list
+        list of per sample data
     limit : int
         number of samples to limit by
     start : int
@@ -254,7 +263,7 @@ def limit_samples(projects_samples, limit, start, end) -> dict:
     Returns
     -------
     dict
-        mapping of project ID to sample lists
+        limited samples list
     """
     # set date defaults if not specified
     if start:
@@ -269,53 +278,39 @@ def limit_samples(projects_samples, limit, start, end) -> dict:
 
     print(
         "\nLimiting samples retained for running reports, currently have "
-        f"{sum([len(x['samples']) for x in projects_samples.values()])} "
-        f"samples in {len(projects_samples.keys())} projects\nLimits "
+        f"{len(samples)} samples from Clarity.\nLimits "
         f"specified:\n\tMaximum number samples: {limit}\n\tDate range: "
         f"{start.strftime('%Y-%m-%d')} : {end.strftime('%Y-%m-%d')}"
     )
 
-    limited_project_samples = defaultdict(lambda x: defaultdict(list))
+    limited_samples = []
     sample_dates = []
     selected_samples = 0
-    hit_limit = False
 
-    for project, project_data in projects_samples.items():
-        if hit_limit: break
+    # pre-sort sample list by booked in datetime stored against each
+    samples = sorted(samples, key=lambda d: d['date'])
 
-        print(project_data)
-        exit()
+    for sample in samples:
+        if selected_samples >= limit:
+            print(f"Hit limit of {limit} samples to retain")
+            break
 
-        for sample in project_data['samples']:
-            if selected_samples >= limit:
-                hit_limit = True
-                print(f"Hit limit of {limit} samples to retain")
-                break
+        if not start <= sample['date'] <= end:
+            print(f"sample not in specified date range: {sample['date']}")
+            continue
 
-            if not start <= sample['date'] <= end:
-                continue
-
-            # sample within date range and not hit limit => select it
-            if not limited_project_samples.get(project):
-                limited_project_samples[project] = {
-                    'project_name': project_data['project_name'],
-                    'samples': []
-                }
-
-            limited_project_samples[project]['samples'].append(sample)
-            sample_dates.append(sample['date'])
-            selected_samples += 1
+        # sample within date range and not hit limit => select it
+        limited_samples.append(sample)
+        sample_dates.append(sample['date'])
+        selected_samples += 1
 
     print(
-        f"{sum([len(x['samples']) for x in limited_project_samples.values()])}"
-        f" samples retained in {len(limited_project_samples.keys())} projects "
-        f"from {min(sample_dates).strftime('%Y-%m-%d')} to "
-        f"{max(sample_dates).strftime('%Y-%m-%d')}"
+        f"{len(limited_samples)} samples selected. Earliest sample: "
+        f"{min(sample_dates).strftime('%Y-%m-%d')}. Latest sample: "
+        f"{max(sample_dates).strftime('%Y-%m-%d')}.\n"
     )
 
-    exit()
-
-    return limited_project_samples
+    return limited_samples
 
 
 def parse_config() -> Union[dict, dict]:
