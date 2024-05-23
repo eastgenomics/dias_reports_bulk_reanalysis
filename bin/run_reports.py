@@ -146,7 +146,8 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
             # unhandled multiple CNV call job => throw in error bucket
             manual_review[project_id]['cnv_call'] = cnv_jobs
         else:
-            project_samples[project_id]['cnv_call_job'] = cnv_jobs[0]
+            # add in CNV call job ID for current project
+            project_samples[project_id]['cnv_call_job_id'] = cnv_jobs[0]
 
         if len(dias_single_paths) > 1:
             # unhandled multiple Dias single output => throw in error bucket
