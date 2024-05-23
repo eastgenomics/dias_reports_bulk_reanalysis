@@ -2,7 +2,6 @@
 General utility functions
 """
 from collections import defaultdict
-from copy import deepcopy
 import concurrent
 from datetime import datetime
 import json
