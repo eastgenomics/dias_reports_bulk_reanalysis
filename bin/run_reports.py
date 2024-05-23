@@ -27,16 +27,18 @@ from utils.dx_manage import (
 
 
 from utils.utils import (
-    add_test_codes_back_to_samples,
+    add_clarity_data_back_to_samples,
     filter_non_unique_specimen_ids,
+    filter_clarity_samples_with_no_reports,
     group_samples_by_project,
+    limit_samples,
     parse_config,
     parse_clarity_export,
     parse_sample_identifiers
 )
 
 
-def configure_inputs(samples_to_codes, assay):
+def configure_inputs(samples_to_codes, assay, limit, start_date, end_date):
     """
     Searches all 002 projects against given sample list to find
     original project for each, check the archivalState for all
@@ -64,9 +66,15 @@ def configure_inputs(samples_to_codes, assay):
     Parameters
     ----------
     samples_to_codes : dict
-        mapping of specimen ID to list of test codes
+        mapping of specimen ID to list of test codes and dates from Clarity
     assay : str
         assay to run reports for
+    limit : int
+        no. of samples to limit for rerunning
+    start_date : int
+        earliest date of samples in Clarity to restrict running reports for
+    end_date : int
+        latest date of samples in Clarity to restrict running reports for
 
     Returns
     -------
@@ -81,16 +89,35 @@ def configure_inputs(samples_to_codes, assay):
 
     reports = get_xlsx_reports(
         all_samples=list(samples_to_codes.keys()),
-        projects=projects.keys()
+        projects=list(projects.keys())[:5]
     )
 
     samples = parse_sample_identifiers(reports)
     samples, non_unique_specimens = filter_non_unique_specimen_ids(samples)
 
+    filter_clarity_samples_with_no_reports(
+        clarity_samples=samples_to_codes,
+        samples_w_reports=samples
+    )
+
     project_samples = group_samples_by_project(
         samples=samples,
         projects=projects
     )
+
+    # add back the test codes from Clarity for each sample
+    project_samples = add_clarity_data_back_to_samples(
+        sample_codes=samples_to_codes,
+        project_samples=project_samples
+    )
+
+    if any([limit, start_date, end_date]):
+        project_samples = limit_samples(
+            projects_samples=project_samples,
+            limit=limit,
+            start=start_date,
+            end=end_date
+        )
 
     print(
         f"{len(project_samples.keys())} projects retained with samples"
@@ -142,12 +169,6 @@ def configure_inputs(samples_to_codes, assay):
     # can probably pickle a load of data and resume from there
     for project in projects_to_skip:
         project_samples.pop(project)
-
-    # add back the test codes from Clarity for each sample
-    project_samples = add_test_codes_back_to_samples(
-        sample_codes=samples_to_codes,
-        project_samples=project_samples
-    )
 
     return project_samples
 
@@ -426,9 +447,30 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--limit",
-        required=False,
+        default=None,
         type=int,
-        help="number of runs to limit running jobs for",
+        help=(
+            "number of samples to limit running jobs for, if no date range is "
+            "specified this will default to being the oldest n samples"
+        )
+    )
+    parser.add_argument(
+        "--start_date",
+        default=None,
+        type=str,
+        help=(
+            "Earliest date to select samples from Clarity to run reports for, "
+            "to be specified as YYMMDD"
+        )
+    )
+    parser.add_argument(
+        "--end_date",
+        default=None,
+        type=str,
+        help=(
+            "Latest date to select samples from Clarity to run reports for, "
+            "to be specified as YYMMDD"
+        )
     )
     parser.add_argument(
         "--testing",
@@ -523,7 +565,13 @@ def main():
     else:
         samples_to_codes = parse_clarity_export(args.clarity_export)
 
-    sample_data = configure_inputs(samples_to_codes, 'CEN')
+    sample_data = configure_inputs(
+        samples_to_codes=samples_to_codes,
+        assay=args.assay,
+        limit=args.limit,
+        start_date=args.start_date,
+        end_date=args.end_date
+    )
 
     batch_job_ids = run_all_batch_jobs(args=args, all_sample_data=sample_data)
 

@@ -50,36 +50,30 @@ def call_in_parallel(func, items) -> list:
     return results
 
 
-def date_to_datetime(date) -> int:
+def date_str_to_datetime(date) -> int:
     """
-    Turn date str from cmd line to integer of days ago from today
+    Turn 6 digit date str of yymmdd into datetime object
 
     Parameters
     ----------
-    date : str
-        date to calculate from
+    date : str|int
+        date to convert
 
     Returns
     -------
-    int
-        n days ago from today
+    datetime
+        datetime object of given str | int
     """
-    assert len(date) == 6 and re.match(
-        r"^2[0-9]", date
-    ), "Date provided does not seem valid"
+    date = str(date)
+
+    assert len(date) == 6, "Date provided does not seem valid"
 
     # split parts of date out, removing leading 0 (required for datetime)
     year, month, day = [
         int(date[i : i + 2].lstrip("0")) for i in range(0, len(date), 2)
     ]
 
-    print(f"Parsed provided date string {date} -> {day}/{month}/20{year}")
-
-    start = datetime(year=int(f"20{year}"), month=month, day=day)
-
-    assert start < datetime.now(), "Provided date in the future"
-
-    return (datetime.now() - start).days
+    return datetime(year=int(f"20{year}"), month=month, day=day)
 
 
 def filter_non_unique_specimen_ids(reports) -> Union[list, dict]:
@@ -121,33 +115,72 @@ def filter_non_unique_specimen_ids(reports) -> Union[list, dict]:
     return unique, non_unique
 
 
+def filter_clarity_samples_with_no_reports(clarity_samples, samples_w_reports):
+    """
+    Filter the sample list by the reports returned from DNAnexus to
+    highlight which have no reports and won't be run
+
+    Parameters
+    ----------
+    clarity_samples : dict
+        dict of samples specimen IDs to test codes and dates parsed
+        from Clarity
+    samples_w_reports : list
+        list of sample identifiers for those with xlsx reports
+    """
+    # pre-filter all specimen IDs from reports data
+    reports_specimens = [s.get('specimen_id') for s in samples_w_reports]
+
+    clarity_w_reports = {
+        specimen: data for specimen, data in clarity_samples.items()
+        if specimen in reports_specimens
+    }
+    clarity_w_out_reports = {
+        specimen: data for specimen, data in clarity_samples.items()
+        if specimen not in reports_specimens
+    }
+
+    print(
+        "Total no. of outstanding samples from Clarity with no prior reports "
+        f"in DNAnexus: {len(clarity_w_out_reports.keys())}"
+    )
+    print(
+        f"Total samples available to run reports for: "
+        f"{len(clarity_w_reports.keys())}"
+    )
+
+    # TODO - figure out if we need to do anything return here
+
+
 def group_samples_by_project(samples, projects) -> dict:
     """
     Group the list of sample reports by the project they are from.
 
-    Returns as the structure: [
-        {
-            'project-xxx': {
-                'project_name': '002_240401_A01295_0334_XXYNSHDBDR',
-                'samples': [
-                    {
-                        'sample': '123456-23251R0047',
-                        'instrument_id': '123456',
-                        'specimen_id': '23251R0047'
-                    }
-                    ...
-                ]
-            }
-        },
-        {
-            'project-yyy': {
+    Returns as the structure:
+    {
+        'project-xxx': {
+            'project_name': '002_240401_A01295_0334_XXYNSHDBDR',
+            'samples': [
+                {
+                    'sample': '123456-23251R0047',
+                    'instrument_id': '123456',
+                    'specimen_id': '23251R0047'
+                }
                 ...
+            ]
+        }
+    },
+    {
+        'project-yyy': {
+            ...
 
 
     Parameters
     ----------
     samples : list
         list of sample details
+    projects : dict
+        describe details of all 002 projects
 
     Returns
     -------
@@ -164,28 +197,31 @@ def group_samples_by_project(samples, projects) -> dict:
     return {k: dict(v) for k, v in dict(project_samples).items()}
 
 
-def add_test_codes_back_to_samples(sample_codes, project_samples) -> dict:
+def add_clarity_data_back_to_samples(sample_codes, project_samples) -> dict:
     """
-    Add in the test codes as an additional key for each sample to the
-    project_samples dict
+    Add in the test codes and date as additional keys for each sample
+    to the project_samples dict
 
     Parameters
     ----------
     sample_codes : dict
-        mapping of specimen ID to test codes from Clarity
+        mapping of specimen ID to test codes and date from Clarity
     project_samples : dict
         per project sample data to add test codes to
 
     Returns
     -------
     dict
-        per project sample data with test codes added
+        per project sample data with test codes and date added
     """
     project_samples_with_codes = deepcopy(project_samples)
 
     for project_id, project_data in project_samples.items():
         for idx, sample_data in enumerate(project_data['samples']):
-            codes = list(set(sample_codes.get(sample_data['specimen_id'])))
+            codes = list(set(
+                sample_codes.get(sample_data['specimen_id']).get('codes')
+            ))
+            date = sample_codes.get(sample_data['specimen_id']).get('date')
 
             if not codes:
                 # this shouldn't happen since we've taken the specimen ID
@@ -194,9 +230,92 @@ def add_test_codes_back_to_samples(sample_codes, project_samples) -> dict:
                 print('oh no')
 
             project_samples_with_codes[project_id]['samples'][idx]['codes'] = codes
-            print(project_samples_with_codes[project_id]['samples'][idx])
+            project_samples_with_codes[project_id]['samples'][idx]['date'] = date
 
     return project_samples_with_codes
+
+
+def limit_samples(projects_samples, limit, start, end) -> dict:
+    """
+    Limits the number of samples retained in the mapping of project ->
+    sample lists to run jobs for
+
+    Parameters
+    ----------
+    projects_samples : dict
+        mapping of project ID to sample lists
+    limit : int
+        number of samples to limit by
+    start : int
+        earliest date of samples in Clarity to restrict running reports for
+    end : int
+        latest date of samples in Clarity to restrict running reports for
+
+    Returns
+    -------
+    dict
+        mapping of project ID to sample lists
+    """
+    # set date defaults if not specified
+    if start:
+        start = date_str_to_datetime(start)
+    else:
+        start = datetime(year=1970, month=1, day=1)
+
+    if not end:
+        end = datetime.now().strftime('%y%m%d')
+
+    end = date_str_to_datetime(end)
+
+    print(
+        "\nLimiting samples retained for running reports, currently have "
+        f"{sum([len(x['samples']) for x in projects_samples.values()])} "
+        f"samples in {len(projects_samples.keys())} projects\nLimits "
+        f"specified:\n\tMaximum number samples: {limit}\n\tDate range: "
+        f"{start.strftime('%Y-%m-%d')} : {end.strftime('%Y-%m-%d')}"
+    )
+
+    limited_project_samples = defaultdict(lambda x: defaultdict(list))
+    sample_dates = []
+    selected_samples = 0
+    hit_limit = False
+
+    for project, project_data in projects_samples.items():
+        if hit_limit: break
+
+        print(project_data)
+        exit()
+
+        for sample in project_data['samples']:
+            if selected_samples >= limit:
+                hit_limit = True
+                print(f"Hit limit of {limit} samples to retain")
+                break
+
+            if not start <= sample['date'] <= end:
+                continue
+
+            # sample within date range and not hit limit => select it
+            if not limited_project_samples.get(project):
+                limited_project_samples[project] = {
+                    'project_name': project_data['project_name'],
+                    'samples': []
+                }
+
+            limited_project_samples[project]['samples'].append(sample)
+            sample_dates.append(sample['date'])
+            selected_samples += 1
+
+    print(
+        f"{sum([len(x['samples']) for x in limited_project_samples.values()])}"
+        f" samples retained in {len(limited_project_samples.keys())} projects "
+        f"from {min(sample_dates).strftime('%Y-%m-%d')} to "
+        f"{max(sample_dates).strftime('%Y-%m-%d')}"
+    )
+
+    exit()
+
+    return limited_project_samples
 
 
 def parse_config() -> Union[dict, dict]:
@@ -238,7 +357,7 @@ def parse_clarity_export(export_file) -> dict:
     Returns
     -------
     dict
-        dict mapping specimen ID to test code(s)
+        dict mapping specimen ID to test code(s) and booked date
     """
     clarity_df = pd.read_excel(export_file)
 
@@ -249,23 +368,29 @@ def parse_clarity_export(export_file) -> dict:
     clarity_df = clarity_df[clarity_df['Test Validation Status'] == 'Resulted']
 
     clarity_df = clarity_df[
-        clarity_df['Test Directory Clinical Indication'] != 'Research Use']
+        clarity_df['Test Directory Clinical Indication'] != 'Research Use'
+    ]
 
-    clarity_df['Test Directory Clinical Indication'].fillna(value='', inplace=True)
+    clarity_df['Test Directory Clinical Indication'].fillna(
+        value='', inplace=True
+    )
 
-    # generate list of specimen ID and test code
+    # turn the date time column into just valid date type
+    clarity_df['Received Specimen Date Time'] = pd.to_datetime(
+        clarity_df['Received Specimen Date Time']
+    ).dt.strftime('%y%m%d')
+
     # TODO - need to figure out if to use the Clinical Indication column
     # to get the test code from or the Test Code column, they seem to differ
     # so need to know which is correct
-    samples_to_codes = (clarity_df[[
-        'Specimen Identifier', 'Test Directory Clinical Indication'
-    ]].to_records(index=False)).tolist()
 
-    # generate mapping of specimen ID to list of test codes
-    sample_code_mapping = defaultdict(list)
-
-    for sample in samples_to_codes:
-        sample_code_mapping[sample[0]].extend(str(sample[1]).split('|'))
+    # generate mapping of specimen ID to list of test codes and booked date
+    sample_code_mapping = {
+        x['Specimen Identifier']: {
+            'codes': x['Test Directory Clinical Indication'].split('|'),
+            'date': date_str_to_datetime(x['Received Specimen Date Time'])
+        } for x in clarity_df.to_dict('records')
+    }
 
     return sample_code_mapping
 
@@ -286,6 +411,9 @@ def parse_sample_identifiers(reports) -> list:
     list
         list of dicts with required sample details
     """
+    # TODO - consider here if a report is not named correctly it could
+    # introduce some messiness, do we just throw it out, raise a warning
+    # or raise an error?
     samples = [
         {
             'project': x['project'],

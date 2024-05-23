@@ -4,6 +4,7 @@ Functions relating to managing data objects an queries in DNAnexus
 import concurrent
 import os
 from pathlib import Path
+import re
 from typing import List, Union
 
 import dxpy
@@ -247,7 +248,7 @@ def get_projects(assay) -> List[dict]:
     print(f"Found {len(projects)} projects for {assay}")
 
     # turn list of projects to dict of id: describe
-    projects = {x['id']: x['describe'] for x in list(reversed(projects))[:3]}
+    projects = {x['id']: x['describe'] for x in list(reversed(projects))}
 
     return projects
 
@@ -281,7 +282,7 @@ def get_xlsx_reports(all_samples, projects) -> list:
     print(f"Searching {len(projects)} projects for samples")
 
     # create chunks of 100 samples from our sample list for querying
-    all_samples = [
+    chunked_samples = [
         all_samples[i:i + 100] for i in range(0, len(all_samples), 100)
     ]
 
@@ -293,7 +294,7 @@ def get_xlsx_reports(all_samples, projects) -> list:
         with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
             concurrent_jobs = {
                 executor.submit(get_reports, project, item)
-                for item in all_samples
+                for item in chunked_samples
             }
 
             for future in concurrent.futures.as_completed(concurrent_jobs):
@@ -313,6 +314,18 @@ def get_xlsx_reports(all_samples, projects) -> list:
         project_reports = [x for y in project_reports for x in y]
         all_reports.extend(project_reports)
         print(f"Found {len(project_reports)} reports in project {project}")
+
+    print(len(all_reports))
+    # filter out any xlsx files found that look to also have a run ID
+    # in the name => output from eggd_artemis for a single sample
+    # (example run ID: 240229_A01295_0328_BHYG25DRX3)
+    all_reports = [
+        x for x in all_reports if not re.search(
+            r'[\d]+_[A-Z][\d]+_[\d]{4}_[\w][^_]+', x['describe']['name']
+        )
+    ]
+
+    print(f"Found {len(all_reports)} total xlsx reports for all projects")
 
     return all_reports
 
