@@ -88,8 +88,6 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date):
 
     projects = get_projects(assay=assay)
 
-    manual_review = defaultdict(lambda: defaultdict(list))
-
     reports = get_xlsx_reports(
         all_samples=list(clarity_data.keys()),
         projects=list(projects.keys())
@@ -122,7 +120,10 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date):
         projects=projects
     )
 
-    projects_to_skip = []
+    # dict we will build up of project ID -> issues, will include:
+    # - unhandled instances of multiple CNV call jobs or Dias single
+    # - unarchiving / archived files
+    manual_review = defaultdict(dict)
 
     for project_id, project_data in project_samples.items():
         print(
@@ -139,38 +140,64 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date):
         )
 
         if len(cnv_jobs) > 1:
-            print('oh no - more than one cnv job found')
-            projects_to_skip.append(project_id)
-            #TODO - figure out what to do, should we stop on any with issues?
-            continue
+            # unhandled multiple CNV call job => throw in error bucket
+            manual_review[project_id]['cnv_call'] = cnv_jobs
         else:
-            # add in CNV call job ID for current project
             project_samples[project_id]['cnv_call_job'] = cnv_jobs[0]
 
         if len(dias_single_paths) > 1:
-            print('oh no - more than one single path found')
-            projects_to_skip.append(project_id)
-            continue
+            # unhandled multiple Dias single output => throw in error bucket
+            manual_review[project_id]['dias_single'] = dias_single_paths
         else:
-            # add in Dias single path for current project
-            project_samples[project_id]['dias_single_path'] = dias_single_paths[0]
+            project_samples[project_id]['dias_single'] = dias_single_paths[0]
 
         _, unarchiving, archived = check_archival_state(
             project=project_id, sample_data=project_data
         )
 
-        if unarchiving or archived:
-            # TODO -  figure out what to do with this projects worth of samples
-            # where there are non-live files we require
-            print('Archived or unarchiving files present')
-            projects_to_skip.append(project_id)
-            continue
+        if unarchiving:
+            manual_review[project_id]['unarchiving'] = unarchiving
 
-    # remove any projects worth of samples with issues
-    # TODO - figure out what / how to handle these for reviewing and resuming,
-    # can probably pickle a load of data and resume from there
-    for project in projects_to_skip:
-        project_samples.pop(project)
+        if archived:
+            manual_review[project_id]['archived'] = archived
+
+        if manual_review.get(project_id):
+            # project has issues, add project name for nicer printing
+            manual_review[project_id][
+                'project_name'] = project_data['project_name']
+
+    if manual_review:
+        # one or more issues with some samples
+        print("\nWarning - one or more projects have issues...")
+        for project_id, issues in manual_review.items():
+            print(f"\nIssues with {issues['project_name']} ({project_id}):")
+
+            if issues.get('cnv_call'):
+                print(
+                    "\tProject has more than one CNV call job and is not "
+                    f"specified in config: {issues.get('cnv_call')}"
+                )
+
+            if issues.get('dias_single'):
+                print(
+                    "\tProject has more than one Dias single output dir and "
+                    f"is not specified in config: {issues.get('dais_single')}"
+                )
+
+            if issues.get('unarchiving'):
+                print(
+                    f"\t{len(issues.get('unarchiving'))} files are "
+                    "still unarchiving"
+                )
+
+            if issues.get('archived'):
+                print(
+                    f"\t{len(issues.get('archived'))} required files are in "
+                    "an archived state"
+                )
+
+        print("\nExiting now due to issues.")
+        exit()
 
     return project_samples
 
