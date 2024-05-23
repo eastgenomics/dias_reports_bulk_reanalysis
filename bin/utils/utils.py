@@ -307,8 +307,6 @@ def limit_samples(samples, limit, start, end) -> dict:
         f"{max(sample_dates).strftime('%Y-%m-%d')}.\n"
     )
 
-    exit()
-
     return limited_samples
 
 
