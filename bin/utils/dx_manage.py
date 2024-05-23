@@ -212,9 +212,14 @@ def get_launched_workflow_ids(batch_ids) -> list:
     """
     details = call_in_parallel(func=dxpy.describe, items=batch_ids)
 
+    # ensure we don't check failed batch jobs
+    details = [x for x in details if x['state'] == 'done']
+
     # get the string of comma separated report IDs from every batch job
     # and flatten to a single list
-    report_jobs = [x["output"]["launched_jobs"] for x in details]
+    report_jobs = [
+        x.get("output", {}).get("launched_jobs") for x in details if x
+    ]
     report_jobs = [jobs.split(",") for jobs in report_jobs]
     report_jobs = [job for jobs in report_jobs for job in jobs]
 
