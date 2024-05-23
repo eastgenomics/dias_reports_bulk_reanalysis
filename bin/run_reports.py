@@ -119,13 +119,12 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date):
             end=end_date
         )
 
+    # check all test codes from Clarity valid against latest genepanels
     genepanels = read_genepanels_file()
     validate_test_codes(
         all_sample_data=samples,
         genepanels=genepanels
     )
-
-    exit()
 
     project_samples = group_samples_by_project(
         samples=samples,
