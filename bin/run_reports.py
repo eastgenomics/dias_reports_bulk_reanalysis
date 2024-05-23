@@ -27,16 +27,21 @@ from utils.dx_manage import (
 
 
 from utils.utils import (
-    add_test_codes_back_to_samples,
+    add_clarity_data_back_to_samples,
     filter_non_unique_specimen_ids,
+    filter_clarity_samples_with_no_reports,
     group_samples_by_project,
+    limit_samples,
     parse_config,
     parse_clarity_export,
     parse_sample_identifiers
 )
 
 
-def configure_inputs(samples_to_codes, assay):
+TEST_PROJECT = "project-Ggvgj6j45jXv43B84Vfzvgv6"
+
+
+def configure_inputs(clarity_data, assay, limit, start_date, end_date):
     """
     Searches all 002 projects against given sample list to find
     original project for each, check the archivalState for all
@@ -63,10 +68,16 @@ def configure_inputs(samples_to_codes, assay):
 
     Parameters
     ----------
-    samples_to_codes : dict
-        mapping of specimen ID to list of test codes
+    clarity_data : dict
+        mapping of specimen ID to list of test codes and dates from Clarity
     assay : str
         assay to run reports for
+    limit : int
+        no. of samples to limit for rerunning
+    start_date : int
+        earliest date of samples in Clarity to restrict running reports for
+    end_date : int
+        latest date of samples in Clarity to restrict running reports for
 
     Returns
     -------
@@ -80,26 +91,44 @@ def configure_inputs(samples_to_codes, assay):
     manual_review = defaultdict(lambda: defaultdict(list))
 
     reports = get_xlsx_reports(
-        all_samples=list(samples_to_codes.keys()),
-        projects=projects.keys()
+        all_samples=list(clarity_data.keys()),
+        projects=list(projects.keys())
     )
 
     samples = parse_sample_identifiers(reports)
     samples, non_unique_specimens = filter_non_unique_specimen_ids(samples)
+
+    filter_clarity_samples_with_no_reports(
+        clarity_samples=clarity_data,
+        samples_w_reports=samples
+    )
+
+    # add back the test codes and booked date from Clarity for each sample
+    samples = add_clarity_data_back_to_samples(
+        samples=samples,
+        clarity_data=clarity_data
+    )
+
+    if any([limit, start_date, end_date]):
+        samples = limit_samples(
+            samples=samples,
+            limit=limit,
+            start=start_date,
+            end=end_date
+        )
 
     project_samples = group_samples_by_project(
         samples=samples,
         projects=projects
     )
 
-    print(
-        f"{len(project_samples.keys())} projects retained with samples"
-        " to run reports for"
-    )
-
     projects_to_skip = []
 
     for project_id, project_data in project_samples.items():
+        print(
+            f"\nChecking project data for {project_data['project_name']} "
+            f"({project_id})"
+        )
         cnv_jobs = get_cnv_call_job(
             project=project_id,
             selected_jobs=manual_cnv_call_jobs
@@ -142,12 +171,6 @@ def configure_inputs(samples_to_codes, assay):
     # can probably pickle a load of data and resume from there
     for project in projects_to_skip:
         project_samples.pop(project)
-
-    # add back the test codes from Clarity for each sample
-    project_samples = add_test_codes_back_to_samples(
-        sample_codes=samples_to_codes,
-        project_samples=project_samples
-    )
 
     return project_samples
 
@@ -230,11 +253,11 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
         )
 
         # name for naming dias batch job
-        name = f"eggd_dias_batch_{project['project_name']}"
+        name = f"eggd_dias_batch_{project_data['project_name']}"
 
         if args.testing:
             # when testing run everything in one 003 project
-            batch_project = "project-Ggvgj6j45jXv43B84Vfzvgv6"
+            batch_project = TEST_PROJECT
         else:
             batch_project = project["id"]
 
@@ -426,14 +449,35 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--limit",
-        required=False,
+        default=None,
         type=int,
-        help="number of runs to limit running jobs for",
+        help=(
+            "number of samples to limit running jobs for, if no date range is "
+            "specified this will default to being the oldest n samples"
+        )
+    )
+    parser.add_argument(
+        "--start_date",
+        default=None,
+        type=str,
+        help=(
+            "Earliest date to select samples from Clarity to run reports for, "
+            "to be specified as YYMMDD"
+        )
+    )
+    parser.add_argument(
+        "--end_date",
+        default=None,
+        type=str,
+        help=(
+            "Latest date to select samples from Clarity to run reports for, "
+            "to be specified as YYMMDD"
+        )
     )
     parser.add_argument(
         "--testing",
-        type=bool,
-        default=True,
+        action='store_true',
+        default=False,
         help=(
             "Controls where dias batch is run, when testing launch all in "
             "one 003 project"
@@ -441,8 +485,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--terminate",
-        type=bool,
-        default=True,
+        action='store_true',
+        default=False,
         help="Controls if to terminate all analysis jobs dias batch launches",
     )
     parser.add_argument(
@@ -459,6 +503,9 @@ def parse_args() -> argparse.Namespace:
 
     if args.batch_inputs:
         args = verify_batch_inputs_argument(args)
+
+    input_str = '\n\t'.join(f"{k} : {v}" for k, v in args.__dict__.items())
+    print(f"Specified arguments:\n\t{input_str}\n")
 
     return args
 
@@ -521,9 +568,31 @@ def main():
     if args.clarity_connect:
         pass
     else:
-        samples_to_codes = parse_clarity_export(args.clarity_export)
+        clarity_data = parse_clarity_export(args.clarity_export)
 
-    sample_data = configure_inputs(samples_to_codes, 'CEN')
+    sample_data = configure_inputs(
+        clarity_data=clarity_data,
+        assay=args.assay,
+        limit=args.limit,
+        start_date=args.start_date,
+        end_date=args.end_date
+    )
+
+    print(
+        f"\nConfirm running reports for all samples in "
+        f"{TEST_PROJECT if args.testing else 'original 002 projects'}"
+    )
+    while True:
+        confirm = input('Run jobs? ')
+
+        if confirm.lower() in ['y', 'yes']:
+            print("Beginning launching jobs...")
+            break
+        elif confirm.lower() in ['n', 'no']:
+            print("Stopping now.")
+            exit()
+        else:
+            print("Invalid response, please enter 'y' or 'n'")
 
     batch_job_ids = run_all_batch_jobs(args=args, all_sample_data=sample_data)
 
@@ -536,4 +605,5 @@ def main():
 
 
 if __name__ == "__main__":
+
     main()
