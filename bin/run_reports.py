@@ -15,6 +15,7 @@ import dxpy
 
 from utils.dx_manage import (
     check_archival_state,
+    unarchive_files,
     create_folder,
     get_cnv_call_job,
     get_job_states,
@@ -41,7 +42,7 @@ from utils.utils import (
 TEST_PROJECT = "project-Ggvgj6j45jXv43B84Vfzvgv6"
 
 
-def configure_inputs(clarity_data, assay, limit, start_date, end_date):
+def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive):
     """
     Searches all 002 projects against given sample list to find
     original project for each, check the archivalState for all
@@ -78,6 +79,8 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date):
         earliest date of samples in Clarity to restrict running reports for
     end_date : int
         latest date of samples in Clarity to restrict running reports for
+    unarchive : bool
+        controls if to unarchive any archived files
 
     Returns
     -------
@@ -196,7 +199,14 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date):
                     "an archived state"
                 )
 
-        print("\nExiting now due to issues.")
+        if [x.get('archived') for x in manual_review.values()]:
+            unarchive_files(
+                project_files={
+                    k: v['archived'] for k, v in manual_review.items()
+                }
+            )
+
+        print("\nExiting now due to above listed issues.")
         exit()
 
     return project_samples
@@ -502,6 +512,12 @@ def parse_args() -> argparse.Namespace:
         )
     )
     parser.add_argument(
+        "--unarchive",
+        default=None,
+        action="store_true",
+        help="controls if to start unarchiving of any required files"
+    )
+    parser.add_argument(
         "--testing",
         action='store_true',
         default=False,
@@ -602,7 +618,8 @@ def main():
         assay=args.assay,
         limit=args.limit,
         start_date=args.start_date,
-        end_date=args.end_date
+        end_date=args.end_date,
+        unarchive=args.unarchive
     )
 
     print(
