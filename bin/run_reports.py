@@ -38,7 +38,7 @@ from utils.utils import (
 )
 
 
-def configure_inputs(samples_to_codes, assay, limit, start_date, end_date):
+def configure_inputs(clarity_data, assay, limit, start_date, end_date):
     """
     Searches all 002 projects against given sample list to find
     original project for each, check the archivalState for all
@@ -65,7 +65,7 @@ def configure_inputs(samples_to_codes, assay, limit, start_date, end_date):
 
     Parameters
     ----------
-    samples_to_codes : dict
+    clarity_data : dict
         mapping of specimen ID to list of test codes and dates from Clarity
     assay : str
         assay to run reports for
@@ -88,7 +88,7 @@ def configure_inputs(samples_to_codes, assay, limit, start_date, end_date):
     manual_review = defaultdict(lambda: defaultdict(list))
 
     reports = get_xlsx_reports(
-        all_samples=list(samples_to_codes.keys()),
+        all_samples=list(clarity_data.keys()),
         projects=list(projects.keys())
     )
 
@@ -96,14 +96,14 @@ def configure_inputs(samples_to_codes, assay, limit, start_date, end_date):
     samples, non_unique_specimens = filter_non_unique_specimen_ids(samples)
 
     filter_clarity_samples_with_no_reports(
-        clarity_samples=samples_to_codes,
+        clarity_samples=clarity_data,
         samples_w_reports=samples
     )
 
     # add back the test codes and booked date from Clarity for each sample
     samples = add_clarity_data_back_to_samples(
         samples=samples,
-        clarity_data=samples_to_codes
+        clarity_data=clarity_data
     )
 
     if any([limit, start_date, end_date]):
@@ -118,8 +118,6 @@ def configure_inputs(samples_to_codes, assay, limit, start_date, end_date):
         samples=samples,
         projects=projects
     )
-
-    exit()
 
     projects_to_skip = []
 
@@ -560,17 +558,15 @@ def main():
     if args.clarity_connect:
         pass
     else:
-        samples_to_codes = parse_clarity_export(args.clarity_export)
+        clarity_data = parse_clarity_export(args.clarity_export)
 
     sample_data = configure_inputs(
-        samples_to_codes=samples_to_codes,
+        clarity_data=clarity_data,
         assay=args.assay,
         limit=args.limit,
         start_date=args.start_date,
         end_date=args.end_date
     )
-
-
 
     batch_job_ids = run_all_batch_jobs(args=args, all_sample_data=sample_data)
 
