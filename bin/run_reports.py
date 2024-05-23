@@ -38,6 +38,9 @@ from utils.utils import (
 )
 
 
+TEST_PROJECT = "project-Ggvgj6j45jXv43B84Vfzvgv6"
+
+
 def configure_inputs(clarity_data, assay, limit, start_date, end_date):
     """
     Searches all 002 projects against given sample list to find
@@ -122,6 +125,10 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date):
     projects_to_skip = []
 
     for project_id, project_data in project_samples.items():
+        print(
+            f"\nChecking project data for {project_data['project_name']} "
+            f"({project_id})"
+        )
         cnv_jobs = get_cnv_call_job(
             project=project_id,
             selected_jobs=manual_cnv_call_jobs
@@ -246,11 +253,11 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
         )
 
         # name for naming dias batch job
-        name = f"eggd_dias_batch_{project['project_name']}"
+        name = f"eggd_dias_batch_{project_data['project_name']}"
 
         if args.testing:
             # when testing run everything in one 003 project
-            batch_project = "project-Ggvgj6j45jXv43B84Vfzvgv6"
+            batch_project = TEST_PROJECT
         else:
             batch_project = project["id"]
 
@@ -568,6 +575,22 @@ def main():
         end_date=args.end_date
     )
 
+    while True:
+        print(
+            f"Confirm running reports for all samples in "
+            f"{TEST_PROJECT if args.testing else 'original 002 projects'}"
+        )
+        confirm = input('Run jobs? ')
+
+        if confirm.lower() in ['y', 'yes']:
+            print("Beginning launching jobs...")
+            break
+        elif confirm.lower() in ['n', 'no']:
+            print("Stopping now.")
+            exit()
+        else:
+            print("Invalid response")
+
     batch_job_ids = run_all_batch_jobs(args=args, all_sample_data=sample_data)
 
     if args.monitor and batch_job_ids:
@@ -579,4 +602,5 @@ def main():
 
 
 if __name__ == "__main__":
+
     main()
