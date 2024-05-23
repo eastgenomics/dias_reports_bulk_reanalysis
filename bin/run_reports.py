@@ -89,7 +89,7 @@ def configure_inputs(samples_to_codes, assay, limit, start_date, end_date):
 
     reports = get_xlsx_reports(
         all_samples=list(samples_to_codes.keys()),
-        projects=list(projects.keys())[:5]
+        projects=list(projects.keys())
     )
 
     samples = parse_sample_identifiers(reports)
@@ -567,6 +567,8 @@ def main():
         start_date=args.start_date,
         end_date=args.end_date
     )
+
+
 
     batch_job_ids = run_all_batch_jobs(args=args, all_sample_data=sample_data)
 

@@ -191,8 +191,6 @@ def group_samples_by_project(samples, projects) -> dict:
     """
     project_samples = defaultdict(lambda: defaultdict(list))
 
-    print(len(samples))
-
     for sample in samples:
         project_samples[sample['project']]['samples'].append(sample)
         project_samples[sample['project']]['project_name'] = projects.get(
@@ -296,7 +294,6 @@ def limit_samples(samples, limit, start, end) -> dict:
             break
 
         if not start <= sample['date'] <= end:
-            print(f"sample not in specified date range: {sample['date']}")
             continue
 
         # sample within date range and not hit limit => select it
@@ -309,6 +306,8 @@ def limit_samples(samples, limit, start, end) -> dict:
         f"{min(sample_dates).strftime('%Y-%m-%d')}. Latest sample: "
         f"{max(sample_dates).strftime('%Y-%m-%d')}.\n"
     )
+
+    exit()
 
     return limited_samples
 

@@ -315,7 +315,6 @@ def get_xlsx_reports(all_samples, projects) -> list:
         all_reports.extend(project_reports)
         print(f"Found {len(project_reports)} reports in project {project}")
 
-    print(len(all_reports))
     # filter out any xlsx files found that look to also have a run ID
     # in the name => output from eggd_artemis for a single sample
     # (example run ID: 240229_A01295_0328_BHYG25DRX3)
