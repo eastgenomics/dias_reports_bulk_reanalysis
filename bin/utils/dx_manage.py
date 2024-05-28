@@ -2,12 +2,14 @@
 Functions relating to managing data objects an queries in DNAnexus
 """
 import concurrent
+from datetime import datetime
 import os
 from pathlib import Path
 import re
 from typing import List, Union
 
 import dxpy
+import pandas as pd
 
 from .utils import call_in_parallel
 
@@ -73,6 +75,67 @@ def check_archival_state(project, sample_data) -> Union[list, list, list]:
     )
 
     return live, unarchiving, archived
+
+
+def unarchive_files(project_files) -> None:
+    """
+    Unarchive given file IDs that are dependent for running reports.
+
+    Adapted from eggd_dias_batch.dx_manage.unarchive_files():
+    https://github.com/eastgenomics/eggd_dias_batch/blob/b63a04e2d421a246017e984efcc2a9eef85fbeaf/resources/home/dnanexus/dias_batch/utils/dx_requests.py#L472
+
+    Parameters
+    ----------
+    project_files : dict
+        mapping of project ID -> list archived file objects
+
+    Raises
+    ------
+    RuntimeError
+        Raised if unarchiving fails for a set of project files
+    """
+    print(
+        f"\nUnarchiving {len([x for y in project_files.values() for x in y])} "
+        f"files in {len(project_files.keys())} project(s)..."
+    )
+
+    for project, files in project_files.items():
+        try:
+            dxpy.api.project_unarchive(
+                project,
+                input_params={
+                    "files": [x['id'] for x in files]
+                }
+            )
+        except Exception as error:
+            # API spec doesn't list the potential exceptions raised,
+            # catch everything and exit on any error
+            print(
+                "Error unarchving files for "
+                f"{project_files[0]['project']}: {error}"
+            )
+            raise RuntimeError(f"Error unarchiving files: {error}")
+
+
+    # build a handy command to dump into the stdout for people to check
+    # the state of all of the files we're unarchiving later on
+    check_state_cmd = (
+        f"echo {' '.join([x['id'] for y in project_files.values() for x in y])}"
+        " | xargs -n1 -d' ' -P32 -I{} bash -c 'dx describe --json {} ' | "
+        "grep archival | uniq -c"
+    )
+
+    print(
+        f"\n \nUnarchiving requested for {len(files)} files, this "
+        "will take some time...\n \n"
+    )
+
+    print(
+        "The state of all files may be checked with the following command:"
+        f"\n \n\t{check_state_cmd}\n \n"
+    )
+
+    exit()
 
 
 def create_folder(path) -> None:
@@ -469,6 +532,80 @@ def run_batch(
     print(f"Launched dias batch job {job.id} in {project}")
 
     return job.id
+
+
+def read_genepanels_file() -> pd.DataFrame:
+    """
+    Read latest genepanels file into DataFrame from 001_Reference
+    project in DNAnexus.
+
+    Adapted from eggd_dias_batch.utils.parse_genepanels:
+    https://github.com/eastgenomics/eggd_dias_batch/blob/master/resources/home/dnanexus/dias_batch/utils/utils.py#L311
+
+    This will keep the unique rows from the first 2 columns (i.e. one
+    row per clinical indication / panel), and adds the test code as a
+    separate column.
+
+    Example resultant dataframe:
+
+    +-----------+-----------------------+---------------------------+
+    | test_code |      indication       |        panel_name         |
+    +-----------+-----------------------+---------------------------+
+    | C1.1      | C1.1_Inherited Stroke |  CUH_Inherited Stroke_1.0 |
+    | C2.1      | C2.1_INSR             |  CUH_INSR_1.0             |
+    +-----------+-----------------------+---------------------------+
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame of genepanels file
+
+    Raises
+    ------
+    RuntimeError
+        Raised if no genepanels found in DNAnexus 001_Reference project
+    """
+    files = list(dxpy.find_data_objects(
+        project="project-Fkb6Gkj433GVVvj73J7x8KbV",
+        folder="/dynamic_files/gene_panels/",
+        name="*tsv",
+        name_mode="glob",
+        describe={'fields': {
+            'created': True,
+            'name': True
+        }}
+    ))
+
+    if not files:
+        raise RuntimeError(
+            "No genepanels files found in project-Fkb6Gkj433GVVvj73J7x8KbV"
+            "/dynamic_files/gene_panels/"
+        )
+
+    # get latest file by created key
+    latest_file = sorted(
+        files,
+        reverse=True,
+        key=lambda x: datetime.fromtimestamp(x['describe']['created']/1000)
+    )[0]
+
+    print(f"Latest genepanels file selected: {latest_file['describe']['name']}")
+
+    contents = dxpy.DXFile(
+        project=latest_file['project'],
+        dxid=latest_file['id']
+    ).read().rstrip('\n').split('\n')
+
+    # genepanels file may have 3 or 4 columns as it can also contain HGNC
+    # ID and PanelApp panel ID, just use the first 2 columns
+    genepanels = pd.DataFrame(
+        [x.split('\t')[:2] for x in contents],
+        columns=['indication', 'panel_name']
+    )
+    genepanels.drop_duplicates(keep='first', inplace=True)
+    genepanels.reset_index(inplace=True)
+
+    return genepanels
 
 
 def upload_manifest(manifest, path) -> str:
