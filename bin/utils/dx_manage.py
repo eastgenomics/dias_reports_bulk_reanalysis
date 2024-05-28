@@ -55,45 +55,10 @@ def check_archival_state(project, sample_data) -> Union[list, list, list]:
 
     print(f"{len(samples)} samples to search for")
 
-    files = [
-        files[i:i + 100] for i in range(0, len(files), 100)
-    ]
-
-    file_details = []
-
-    # TODO - refactor this mess along with find_xlsx_reports(), might be
-    # able to bodge it into the call_in_parallel function
-    def _find(project, search_term):
-        """Query given sample IDs in one go to find all files"""
-        return list(dxpy.find_data_objects(
-            project=project,
-            name=rf'{"|".join(search_term)}',
-            name_mode='regexp',
-            describe={'fields': {'name': True, 'archivalState': True, 'createdBy': True}}
-        ))
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
-        concurrent_jobs = {
-            executor.submit(_find, project, item)
-            for item in files
-        }
-
-        for future in concurrent.futures.as_completed(concurrent_jobs):
-            # access returned output as each is returned in any order
-            try:
-                output = future.result()
-                file_details.append(output)
-
-            except Exception as exc:
-                # catch any errors that might get raised during querying
-                print(
-                    f"Error getting data for {future}: {exc}"
-                )
-                raise exc
-
-    # flatten the returned list of lists of sample data
-    file_details = [x for y in file_details for x in y]
-
+    file_details = find_in_parallel(
+        project=project,
+        items=files
+    )
 
     # TODO - return something useful from this on states
     print(f"Found {len(file_details)} files")
@@ -181,6 +146,69 @@ def create_folder(path) -> None:
         folder to create
     """
     dxpy.bindings.dxproject.DXProject().new_folder(folder=path, parents=True)
+
+
+def find_in_parallel(project, items, prefix='', suffix='') -> list:
+    """
+    Call dxpy.find_data_objects in parallel for given list of `items`.
+
+    All items in list are chunked into max 100 items and queried in one
+    go as a regex pattern for more efficient querying
+
+    Parameters
+    ----------
+    project : str
+        project ID in which to restrict search scope
+    items : list
+        list of search terms to search for
+    prefix : str
+        optional prefix string for searching
+    suffix : str
+        optional suffix string for searching
+
+    Returns
+    -------
+    list
+        list of all found dxpy object details
+    """
+    def _find(project, search_term):
+        """Query given patterns as a regex search term to find all files"""
+        return list(dxpy.find_data_objects(
+            project=project,
+            name=rf'{prefix}{"|".join(search_term)}{suffix}',
+            name_mode='regexp',
+            describe={
+                'fields': {
+                    'name': True,
+                    'archivalState': True,
+                    'createdBy': True
+                }
+            }
+        ))
+
+    results = []
+
+    # create chunks of 100 items from list for querying
+    chunked_items = [items[i:i + 100] for i in range(0, len(items), 100)]
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+        concurrent_jobs = {
+            executor.submit(_find, project, item) for item in chunked_items
+        }
+
+        for future in concurrent.futures.as_completed(concurrent_jobs):
+            # access returned output as each is returned in any order
+            try:
+                results.extend(future.result())
+
+            except Exception as exc:
+                # catch any errors that might get raised during querying
+                print(
+                    f"Error getting data for {future}: {exc}"
+                )
+                raise exc
+
+    return results
 
 
 def get_cnv_call_job(project, selected_jobs) -> list:
@@ -273,9 +301,14 @@ def get_launched_workflow_ids(batch_ids) -> list:
     """
     details = call_in_parallel(func=dxpy.describe, items=batch_ids)
 
+    # ensure we don't check failed batch jobs
+    details = [x for x in details if x['state'] == 'done']
+
     # get the string of comma separated report IDs from every batch job
     # and flatten to a single list
-    report_jobs = [x["output"]["launched_jobs"] for x in details]
+    report_jobs = [
+        x.get("output", {}).get("launched_jobs") for x in details if x
+    ]
     report_jobs = [jobs.split(",") for jobs in report_jobs]
     report_jobs = [job for jobs in report_jobs for job in jobs]
 
@@ -331,49 +364,21 @@ def get_xlsx_reports(all_samples, projects) -> list:
     list
         list of all xlsx file describe objects found
     """
-    def get_reports(project, samples):
-        """Query given sample IDs in one go to find all files"""
-        return list(dxpy.find_data_objects(
-            project=project,
-            name=rf'.*({"|".join(samples)}).*xlsx',
-            name_mode='regexp',
-            describe={'fields': {'name': True, 'archivalState': True, 'createdBy': True}}
-        ))
-
     print(f"Searching {len(projects)} projects for samples")
-
-    # create chunks of 100 samples from our sample list for querying
-    chunked_samples = [
-        all_samples[i:i + 100] for i in range(0, len(all_samples), 100)
-    ]
 
     all_reports = []
 
     for project in projects:
         project_reports = []
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
-            concurrent_jobs = {
-                executor.submit(get_reports, project, item)
-                for item in chunked_samples
-            }
-
-            for future in concurrent.futures.as_completed(concurrent_jobs):
-                # access returned output as each is returned in any order
-                try:
-                    reports = future.result()
-                    project_reports.append(reports)
-
-                except Exception as exc:
-                    # catch any errors that might get raised during querying
-                    print(
-                        f"Error getting data for {future}: {exc}"
-                    )
-                    raise exc
-
-        # flatten the returned list of lists of sample data
-        project_reports = [x for y in project_reports for x in y]
+        project_reports = find_in_parallel(
+            project=project,
+            items=all_samples,
+            prefix='.*(',
+            suffix=').*xlsx'
+        )
         all_reports.extend(project_reports)
+
         print(f"Found {len(project_reports)} reports in project {project}")
 
     # filter out any xlsx files found that look to also have a run ID
