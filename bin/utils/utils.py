@@ -226,23 +226,29 @@ def add_clarity_data_back_to_samples(samples, clarity_data) -> list:
     -------
     list
         list of sample info with test codes and date added from Clarity
+
+    Raises
+    ------
+    RuntimeError
+        Raised if a specimen ID is not present in the clarity data
     """
     merged_sample_data = []
 
     for sample in samples:
-        codes = list(set(
-            clarity_data.get(sample['specimen_id']).get('codes')
-        ))
-        date = clarity_data.get(sample['specimen_id']).get('date')
+        clarity_sample = clarity_data.get(sample['specimen_id'])
 
-        if not codes:
+        if not clarity_sample:
             # this shouldn't happen since we've taken the specimen ID
             # from the sample codes dict to make the project_samples dict
-            # TODO - do something here useful
-            print('oh no')
+            raise RuntimeError(
+                f"Error with sample {sample['sample']} - no test codes for "
+                "the specimen ID found in Clarity"
+            )
 
-        sample['codes'] = codes
-        sample['date'] = date
+        sample['codes'] = list(set(
+            clarity_data.get(sample['specimen_id']).get('codes')
+        ))
+        sample['date'] = clarity_data.get(sample['specimen_id']).get('date')
 
         merged_sample_data.append(sample)
 

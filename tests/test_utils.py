@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import datetime, timedelta
 import unittest
 from unittest.mock import patch
@@ -70,7 +71,6 @@ class TestFilterClaritySamplesWithNoReports(unittest.TestCase):
     TODO
     """
     pass
-
 
 
 class TestGroupSamplesByProject(unittest.TestCase):
@@ -197,17 +197,123 @@ class TestGroupSamplesByProject(unittest.TestCase):
 
 class TestAddClarityDataBackToSamples(unittest.TestCase):
     """
-    TODO
+    Tests for utils.add_clarity_data_back_to_samples.
+
+    Function takes the sample identifiers parsed from report jobs and
+    selects back the test codes and booked dates from the Clarity data
+    for each specimen ID
     """
-    pass
+    sample_data = [
+        {
+            "project": "project-xxx",
+            'sample': '111111-23251R0041',
+            'instrument_id': '111111',
+            'specimen_id': '23251R0041',
+        },
+        {
+            "project": "project-xxx",
+            'sample': '222222-23251R0042',
+            'instrument_id': '222222',
+            'specimen_id': '23251R0042',
+        },
+        {
+            "project": "project-yyy",
+            'sample': '3333333-23251R0043',
+            'instrument_id': '333333',
+            'specimen_id': '23251R0043',
+        },
+        {
+            "project": "project-zzz",
+            'sample': '444444-23251R0044',
+            'instrument_id': '444444',
+            'specimen_id': '23251R0044',
+        }
+    ]
+
+    # mapping of specimen ID -> test codes and booked date as returned
+    # from utils.parse_clarity_export
+    clarity_data = {
+        '23251R0041': {
+            'codes': ['R134'],
+            'date': datetime(2023, 9, 22, 0, 0)
+        },
+        '23251R0042': {
+            'codes': ['R144'],
+            'date': datetime(2023, 10, 25, 0, 0)
+        },
+        '23251R0043': {
+            'codes': ['R154'],
+            'date': datetime(2023, 3, 4, 0, 0)
+        },
+        '23251R0044': {
+            'codes': ['R164'],
+            'date': datetime(2023, 2, 27, 0, 0)
+        },
+    }
+
+    def test_codes_and_date_added_correctly(self):
+        """
+        Test that the test codes and date added correctly for each sample
+        from the Clarity data
+        """
+        expected_output = [
+            {
+                "project": "project-xxx",
+                'sample': '111111-23251R0041',
+                'instrument_id': '111111',
+                'specimen_id': '23251R0041',
+                'codes': ['R134'],
+                'date': datetime(2023, 9, 22, 0, 0)
+            },
+            {
+                "project": "project-xxx",
+                'sample': '222222-23251R0042',
+                'instrument_id': '222222',
+                'specimen_id': '23251R0042',
+                'codes': ['R144'],
+                'date': datetime(2023, 10, 25, 0, 0)
+            },
+            {
+                "project": "project-yyy",
+                'sample': '3333333-23251R0043',
+                'instrument_id': '333333',
+                'specimen_id': '23251R0043',
+                'codes': ['R154'],
+                'date': datetime(2023, 3, 4, 0, 0)
+            },
+            {
+                "project": "project-zzz",
+                'sample': '444444-23251R0044',
+                'instrument_id': '444444',
+                'specimen_id': '23251R0044',
+                'codes': ['R164'],
+                'date': datetime(2023, 2, 27, 0, 0)
+            }
+        ]
+
+        returned_output = utils.add_clarity_data_back_to_samples(
+            samples=self.sample_data,
+            clarity_data=self.clarity_data
+        )
+
+        assert expected_output == returned_output, (
+            "Clarity test codes and dates incorrectly added"
+        )
 
 
+    def error_raised_if_specimen_not_in_clarity_data(self):
+        """
+        Test that a RuntimeError is correctly raised if the specimen
+        ID is missing from the Clarity data
+        """
+        clarity_missing_sample = deepcopy(self.clarity_data)
+        clarity_missing_sample.pop('23251R0041')
 
-
-
-
-
-
+        with pytest.raises(RuntimeError):
+            utils.add_clarity_data_back_to_samples(
+                samples=self.sample_data,
+                clarity_data=clarity_missing_sample
+            )
 
 
 class TestLimitSamples(unittest.TestCase):
