@@ -160,7 +160,8 @@ def filter_clarity_samples_with_no_reports(clarity_samples, samples_w_reports):
 
 def group_samples_by_project(samples, projects) -> dict:
     """
-    Group the list of sample reports by the project they are from.
+    Group the list of sample reports by the project they are from and
+    adds the project name as an additional key.
 
     Returns as the structure:
     {
