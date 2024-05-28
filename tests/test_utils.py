@@ -7,6 +7,13 @@ import pytest
 from bin.utils import utils
 
 
+class TestCallInParallel(unittest.TestCase):
+    """
+    TODO
+    """
+    pass
+
+
 class TestDateStrToDatetime(unittest.TestCase):
     """
     Tests for utils.date_to_datetime
@@ -49,6 +56,20 @@ class TestDateStrToDatetime(unittest.TestCase):
         for invalid in invalid_strings:
             with self.subTest() and pytest.raises(AssertionError):
                 utils.date_str_to_datetime(invalid)
+
+
+class TestFilterNonUniqueSpecimenIds(unittest.TestCase):
+    """
+    TODO
+    """
+    pass
+
+
+class TestFilterClaritySamplesWithNoReports(unittest.TestCase):
+    """
+    TODO
+    """
+    pass
 
 
 
@@ -172,3 +193,54 @@ class TestGroupSamplesByProject(unittest.TestCase):
         assert returned_grouping == expected_grouping, (
             'Sample data incorrectly grouped by project'
         )
+
+
+class TestAddClarityDataBackToSamples(unittest.TestCase):
+    """
+    TODO
+    """
+    pass
+
+
+
+
+
+
+
+
+
+
+class TestLimitSamples(unittest.TestCase):
+    """
+    TODO
+    """
+    pass
+
+
+
+
+
+
+
+class TestParseConfig(unittest.TestCase):
+    """
+    TODO
+    """
+    pass
+
+
+class TestParseClarityExport(unittest.TestCase):
+    """
+    TODO
+    """
+    pass
+
+
+class TestParseSampleIdentifiers(unittest.TestCase):
+    """
+    TODO
+    """
+    pass
+
+
+
