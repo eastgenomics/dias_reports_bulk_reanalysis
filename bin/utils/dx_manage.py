@@ -388,6 +388,11 @@ def get_latest_dias_batch_app() -> str:
     -------
     str
         app ID of latest version of eggd_dias_batch
+
+    Raises
+    ------
+    AssertionError
+        Raised if no matching app found
     """
     app = list(dxpy.bindings.search.find_apps(
         name='eggd_dias_batch',
