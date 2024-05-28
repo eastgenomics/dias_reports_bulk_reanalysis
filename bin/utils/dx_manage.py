@@ -380,6 +380,26 @@ def get_single_dir(project, selected_paths) -> str:
     return paths
 
 
+def get_latest_dias_batch_app() -> str:
+    """
+    Get the app ID of the latest eggd_dias_batch
+
+    Returns
+    -------
+    str
+        app ID of latest version of eggd_dias_batch
+    """
+    app = list(dxpy.bindings.search.find_apps(
+        name='eggd_dias_batch',
+        name_mode='exact',
+        published=True
+    ))
+
+    assert app, "No app found for eggd_dias_batch"
+
+    return app[0][id]
+
+
 def upload_manifest(manifest, path) -> str:
     """
     Upload manifest file to DNAnexus
