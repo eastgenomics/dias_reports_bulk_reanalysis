@@ -110,7 +110,6 @@ def check_archival_state(project, sample_data) -> Union[list, list, list]:
     return live, unarchiving, archived
 
 
-
 def unarchive_files(project_files) -> None:
     """
     Unarchive given file IDs that are dependent for running reports.
