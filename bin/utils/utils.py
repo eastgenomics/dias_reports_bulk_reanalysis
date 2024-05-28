@@ -240,7 +240,7 @@ def add_clarity_data_back_to_samples(samples, clarity_data) -> list:
     return merged_sample_data
 
 
-def limit_samples(samples, limit, start, end) -> dict:
+def limit_samples(samples, limit, start, end) -> list:
     """
     Limits the number of samples retained by integer and / or range of
     dates

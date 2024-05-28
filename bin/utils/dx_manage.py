@@ -75,6 +75,67 @@ def check_archival_state(project, sample_data) -> Union[list, list, list]:
     return live, unarchiving, archived
 
 
+def unarchive_files(project_files) -> None:
+    """
+    Unarchive given file IDs that are dependent for running reports.
+
+    Adapted from eggd_dias_batch.dx_manage.unarchive_files():
+    https://github.com/eastgenomics/eggd_dias_batch/blob/b63a04e2d421a246017e984efcc2a9eef85fbeaf/resources/home/dnanexus/dias_batch/utils/dx_requests.py#L472
+
+    Parameters
+    ----------
+    project_files : dict
+        mapping of project ID -> list archived file objects
+
+    Raises
+    ------
+    RuntimeError
+        Raised if unarchiving fails for a set of project files
+    """
+    print(
+        f"\nUnarchiving {len([x for y in project_files.values() for x in y])} "
+        f"files in {len(project_files.keys())} project(s)..."
+    )
+
+    for project, files in project_files.items():
+        try:
+            dxpy.api.project_unarchive(
+                project,
+                input_params={
+                    "files": [x['id'] for x in files]
+                }
+            )
+        except Exception as error:
+            # API spec doesn't list the potential exceptions raised,
+            # catch everything and exit on any error
+            print(
+                "Error unarchving files for "
+                f"{project_files[0]['project']}: {error}"
+            )
+            raise RuntimeError(f"Error unarchiving files: {error}")
+
+
+    # build a handy command to dump into the stdout for people to check
+    # the state of all of the files we're unarchiving later on
+    check_state_cmd = (
+        f"echo {' '.join([x['id'] for y in project_files.values() for x in y])}"
+        " | xargs -n1 -d' ' -P32 -I{} bash -c 'dx describe --json {} ' | "
+        "grep archival | uniq -c"
+    )
+
+    print(
+        f"\n \nUnarchiving requested for {len(files)} files, this "
+        "will take some time...\n \n"
+    )
+
+    print(
+        "The state of all files may be checked with the following command:"
+        f"\n \n\t{check_state_cmd}\n \n"
+    )
+
+    exit()
+
+
 def create_folder(path) -> None:
     """
     Create folder for storing manifests
