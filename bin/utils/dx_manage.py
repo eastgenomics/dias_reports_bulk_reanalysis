@@ -2,12 +2,14 @@
 Functions relating to managing data objects an queries in DNAnexus
 """
 import concurrent
+from datetime import datetime
 import os
 from pathlib import Path
 import re
 from typing import List, Union
 
 import dxpy
+import pandas as pd
 
 from .utils import call_in_parallel
 
@@ -439,6 +441,81 @@ def get_single_dir(project, selected_paths) -> str:
     print(f"Found Dias single path(s): {paths}")
 
     return paths
+
+
+def read_genepanels_file() -> pd.DataFrame:
+    """
+    Read latest genepanels file into DataFrame from 001_Reference
+    project in DNAnexus.
+
+    Adapted from eggd_dias_batch.utils.parse_genepanels:
+    https://github.com/eastgenomics/eggd_dias_batch/blob/master/resources/home/dnanexus/dias_batch/utils/utils.py#L311
+
+    This will keep the unique rows from the first 2 columns (i.e. one
+    row per clinical indication / panel), and adds the test code as a
+    separate column.
+
+    Example resultant dataframe:
+
+    +-----------+-----------------------+---------------------------+
+    | test_code |      indication       |        panel_name         |
+    +-----------+-----------------------+---------------------------+
+    | C1.1      | C1.1_Inherited Stroke |  CUH_Inherited Stroke_1.0 |
+    | C2.1      | C2.1_INSR             |  CUH_INSR_1.0             |
+    +-----------+-----------------------+---------------------------+
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame of genepanels file
+
+    Raises
+    ------
+    RuntimeError
+        Raised if no genepanels found in DNAnexus 001_Reference project
+    """
+    files = list(dxpy.find_data_objects(
+        project="project-Fkb6Gkj433GVVvj73J7x8KbV",
+        folder="/dynamic_files/gene_panels/",
+        name="*tsv",
+        name_mode="glob",
+        describe={'fields': {
+            'created': True,
+            'name': True
+        }}
+    ))
+
+    if not files:
+        raise RuntimeError(
+            "No genepanels files found in project-Fkb6Gkj433GVVvj73J7x8KbV"
+            "/dynamic_files/gene_panels/"
+        )
+
+    # get latest file by created key
+    latest_file = sorted(
+        files,
+        reverse=True,
+        key=lambda x: datetime.fromtimestamp(x['describe']['created']/1000)
+    )[0]
+
+    print(f"Latest genepanels file selected: {latest_file['describe']['name']}")
+
+    contents = dxpy.DXFile(
+        project=latest_file['project'],
+        dxid=latest_file['id']
+    ).read().rstrip('\n').split('\n')
+
+    # genepanels file may have 3 or 4 columns as it can also contain HGNC
+    # ID and PanelApp panel ID, just use the first 2 columns
+    genepanels = pd.DataFrame(
+        [x.split('\t')[:2] for x in contents],
+        columns=['indication', 'panel_name']
+    )
+    genepanels.drop_duplicates(keep='first', inplace=True)
+    genepanels.reset_index(inplace=True)
+
+    return genepanels
+
 
 
 def upload_manifest(manifest, path) -> str:
