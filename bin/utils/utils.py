@@ -6,6 +6,7 @@ import concurrent
 from datetime import datetime
 import json
 from os import path
+import re
 
 import pandas as pd
 from typing import Union
@@ -54,17 +55,24 @@ def date_str_to_datetime(date) -> int:
 
     Parameters
     ----------
-    date : str|int
+    date : str | int
         date to convert
 
     Returns
     -------
     datetime
         datetime object of given str | int
+
+    Raises
+    ------
+    AssertionError
+        Raised when incorrect number of
     """
     date = str(date)
 
-    assert len(date) == 6, "Date provided does not seem valid"
+    assert re.fullmatch(r'2[0-9](0[0-9]|1[0-2])[0-3][0-9]', date), (
+        "Date provided does not seem valid"
+    )
 
     # split parts of date out, removing leading 0 (required for datetime)
     year, month, day = [

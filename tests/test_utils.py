@@ -1,32 +1,43 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import unittest
 from unittest.mock import patch
 
 import pytest
 
-from bin.utils.utils import date_to_datetime
+from bin.utils.utils import date_str_to_datetime
 
 
-class TestDateToDatetime(unittest.TestCase):
+class TestDateStrToDatetime(unittest.TestCase):
     """
     Tests for utils.date_to_datetime
 
-    Function takes a 6 digit string (YYMMHH) and calculates the number
-    of days from then until current day for searching for projects
+    Function takes a 6 digit string (YYMMHH) and returns this as a
+    valid datetime.datetime object
     """
-
-    @patch("bin.utils.utils.datetime", wraps=datetime)
-    def test_correct_no_days_returned(self, mock_datetime):
+    def test_correct_datetime_returned(self):
         """
-        Test correct no. days returned given valid date string, days
-        are between 02/03/2023 -> 03/03/2024 => 367 days
+        Test correct datetime object returned for valid input string
         """
-        # patch over now to be a fixed date to calculate up until
-        mock_datetime.now.return_value = datetime(2024, 3, 3)
+        converted_date = date_str_to_datetime('230516')
+        correct_date = datetime(year=2023, month=5, day=16)
 
-        calculated_days = date_to_datetime("230302")
+        assert converted_date == correct_date, 'Wrong date returned'
 
-        assert calculated_days == 367, "time delta calculated incorrectly"
+
+    def test_valid_date_strings_do_not_raise_assertion(self):
+        """
+        Test that when valid date strings are passed that no assertion
+        error is raised
+        """
+        # generate list of valid dates for the past few years
+        valid_dates = [(
+            datetime.today() - timedelta(days=x)
+        ).strftime('%y%m%d') for x in range(1000)]
+
+        for valid in valid_dates:
+            with self.subTest():
+                date_str_to_datetime(valid)
+
 
     def test_invalid_date_strings_raise_assertion_error(self):
         """
@@ -37,17 +48,5 @@ class TestDateToDatetime(unittest.TestCase):
 
         for invalid in invalid_strings:
             with self.subTest() and pytest.raises(AssertionError):
-                date_to_datetime(invalid)
+                date_str_to_datetime(invalid)
 
-    @patch("bin.utils.utils.datetime", wraps=datetime)
-    def test_date_in_future_raises_assertion_error(self, mock_datetime):
-        """
-        Test that when a date provided is in the future that an
-        AssertionError is correctly raised
-        """
-        mock_datetime.now.return_value = datetime(2024, 3, 3)
-
-        with pytest.raises(
-            AssertionError, match="Provided date in the future"
-        ):
-            date_to_datetime("240606")
