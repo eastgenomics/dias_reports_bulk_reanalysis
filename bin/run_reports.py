@@ -22,6 +22,8 @@ from utils.dx_manage import (
     get_projects,
     get_xlsx_reports,
     get_single_dir,
+    get_latest_dias_batch_app,
+    run_batch,
     upload_manifest,
 )
 
@@ -237,6 +239,7 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
     now = datetime.now().strftime("%y%m%d_%H%M")
 
     create_folder(path=f"/manifests/{now}")
+    batch_app_id = get_latest_dias_batch_app()
 
     launched_jobs = []
 
@@ -263,6 +266,7 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
 
         batch_id = run_batch(
             project=batch_project,
+            batch_app_id=batch_app_id,
             cnv_job=project_data['cnv_call_job_id'],
             single_path=project_data['dias_single_path'],
             manifest=manifest_id,
@@ -280,69 +284,6 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
     print(f"Launched {len(launched_jobs)} Dias batch jobs")
 
     return launched_jobs
-
-
-def run_batch(
-    project,
-    cnv_job,
-    single_path,
-    manifest,
-    name,
-    batch_inputs,
-    assay,
-    terminate,
-    ) -> str:
-    """
-    Runs dias batch in the specified project
-
-    Parameters
-    ----------
-    project : str
-        project ID of where to run dias batch
-    cnv_job : str | None
-        job ID of CNV calling to pass to batch
-    single_path : str
-        path to Dias single output
-    manifest : str
-        file ID of uploaded manifest
-    name : str
-        name to use for batch job
-    batch_inputs : dict
-        dict of additional inputs to provide to dias_batch
-    assay : str
-        assay running analysis for
-    terminate : bool
-        controls if to terminate jobs launched by dias batch (for testing)
-
-    Returns
-    -------
-    str
-        job ID of launched dias batch job
-    """
-    # only run CNV reports if we have a CNV job ID
-    cnv_reports = True if cnv_job else False
-
-    app_input = {
-        "cnv_call_job_id": cnv_job,
-        "cnv_reports": cnv_reports,
-        "snv_reports": True,
-        "artemis": True,
-        "manifest_files": [{"$dnanexus_link": manifest}],
-        "single_output_dir": single_path,
-        "assay": assay,
-        "testing": terminate,
-    }
-
-    if batch_inputs:
-        app_input = {**app_input, **batch_inputs}
-
-    job = dxpy.DXApp("app-GfG4Bf84QQg40v7Y6zKF34KP").run(
-        app_input=app_input, project=project, name=name
-    )
-
-    print(f"Launched dias batch job {job.id} in {project}")
-
-    return job.id
 
 
 def monitor_launched_jobs(job_ids, mode) -> None:
