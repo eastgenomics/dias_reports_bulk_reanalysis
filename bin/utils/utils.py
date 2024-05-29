@@ -6,6 +6,7 @@ import concurrent
 from datetime import datetime
 import json
 from os import path
+import re
 
 import pandas as pd
 from typing import Union
@@ -54,17 +55,24 @@ def date_str_to_datetime(date) -> int:
 
     Parameters
     ----------
-    date : str|int
+    date : str | int
         date to convert
 
     Returns
     -------
     datetime
         datetime object of given str | int
+
+    Raises
+    ------
+    AssertionError
+        Raised when incorrect number of
     """
     date = str(date)
 
-    assert len(date) == 6, "Date provided does not seem valid"
+    assert re.fullmatch(r'2[0-9](0[0-9]|1[0-2])[0-3][0-9]', date), (
+        "Date provided does not seem valid"
+    )
 
     # split parts of date out, removing leading 0 (required for datetime)
     year, month, day = [
@@ -152,7 +160,8 @@ def filter_clarity_samples_with_no_reports(clarity_samples, samples_w_reports):
 
 def group_samples_by_project(samples, projects) -> dict:
     """
-    Group the list of sample reports by the project they are from.
+    Group the list of sample reports by the project they are from and
+    adds the project name as an additional key.
 
     Returns as the structure:
     {
@@ -217,23 +226,29 @@ def add_clarity_data_back_to_samples(samples, clarity_data) -> list:
     -------
     list
         list of sample info with test codes and date added from Clarity
+
+    Raises
+    ------
+    RuntimeError
+        Raised if a specimen ID is not present in the clarity data
     """
     merged_sample_data = []
 
     for sample in samples:
-        codes = list(set(
-            clarity_data.get(sample['specimen_id']).get('codes')
-        ))
-        date = clarity_data.get(sample['specimen_id']).get('date')
+        clarity_sample = clarity_data.get(sample['specimen_id'])
 
-        if not codes:
+        if not clarity_sample:
             # this shouldn't happen since we've taken the specimen ID
             # from the sample codes dict to make the project_samples dict
-            # TODO - do something here useful
-            print('oh no')
+            raise RuntimeError(
+                f"Error with sample {sample['sample']} - no test codes for "
+                "the specimen ID found in Clarity"
+            )
 
-        sample['codes'] = codes
-        sample['date'] = date
+        sample['codes'] = list(set(
+            clarity_data.get(sample['specimen_id']).get('codes')
+        ))
+        sample['date'] = clarity_data.get(sample['specimen_id']).get('date')
 
         merged_sample_data.append(sample)
 
