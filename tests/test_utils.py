@@ -1,5 +1,6 @@
 from copy import deepcopy
 from datetime import datetime, timedelta
+from os import path
 import unittest
 from unittest.mock import patch
 
@@ -535,12 +536,49 @@ class TestLimitSamples(unittest.TestCase):
             'incorrect samples retained with integer and date range limits'
         )
 
-
 class TestParseConfig(unittest.TestCase):
     """
-    TODO
+    Tests for utils.parse_config
+
+    Function reads in the config file stored in configs/ that contains
+    the manually selected CNV call jobs and Dias single paths for specific
+    projects where >1 of each exists and we can't unambiguously select
+    the correct one
     """
-    pass
+    @patch('bin.utils.utils.path.join')
+    def test_correct_contents_returned(self, mock_join):
+        """
+        Test that the function correctly loads the json and returns the
+        dicts of the cnv call job IDs and Dias single paths
+        """
+        mock_join.return_value = (
+            f"{path.dirname(path.abspath(__file__))}"
+            "/test_data/manually_selected.json"
+        )
+
+        cnv_jobs, dias_single_paths = utils.parse_config()
+
+        expected_cnv_jobs = {
+            "project-GgZyg8j47Ky5z0vBG0JBB0QJ": "job-Ggggppj47Ky46K2KZYyB7J3B",
+            "project-GgJ3gf04F80JY20Gjkp0QjF4": "job-GgPYb984F80JZv63zG198VvZ",
+            "project-GZk71GQ446x5YQkjzvpYFBzB": "job-GZq727Q446x28FQ74BkqBJx9",
+            "project-GZ3zJBj4X0Vy0b4Y20QyG1B2": "job-GZ4q5VQ4X0Vz3jkP95Yb058J",
+            "project-GXZg37j4kgGxFZ29fj3f3Yp4": "job-GXby1ZQ4kgGXQK7gyv506Xj9",
+            "project-GXZg0J04BXfPFFZYYFGz42bP": "job-GXbyZ104BXf8G5296g93bvx2"
+        }
+
+        expected_dias_single_paths = {
+            "project-GgXvB984QX3xF6qkPK4Kp5xx": "/output/CEN-240304_1257",
+            "project-Ggyb2G84zJ4363x2JqfGgb6J": "/output/CEN-240322_0936"
+        }
+
+        with self.subTest():
+            assert cnv_jobs == expected_cnv_jobs, "CNV call jobs incorrect"
+
+        with self.subTest():
+            assert dias_single_paths == expected_dias_single_paths, (
+                "Dias single paths incorrect"
+            )
 
 
 class TestParseClarityExport(unittest.TestCase):
