@@ -344,9 +344,157 @@ class TestParseClarityExport(unittest.TestCase):
 
 class TestParseSampleIdentifiers(unittest.TestCase):
     """
-    TODO
+    Tests for utils.parse_sample_identifiers
+
+    Function takes a list of describe objects from dxpy.find_data_objects
+    for xlsx reports found from a given set of specimen IDs, and parses
+    out the instrument ID and project ID for each. This is because the
+    Clarity data doesn't contain the instrument ID so we are getting this
+    from the reports job data.
     """
-    pass
+    # minimal return from dxpy.find_data_objects as would be returned
+    # from the call in dx_manage.get_xlsx_reports
+    find_data_return = [
+        {
+            "project": "project-Gk7bv204fz4YVzb8Yp0BYjG2",
+            "id": "file-GkBzKBj4jzpkvxq1fqqv1Z4g",
+            "describe": {
+                "id": "file-GkBzKBj4jzpkvxq1fqqv1Z4g",
+                "name": "111111111-12345R6789-24NGCEN41-9527-F-99347387_R208.1_CNV_1.xlsx",
+                "createdBy": {
+                    "user": "user-1",
+                    "job": "job-GkBz2b04fz4qVZYZ78JpzxzZ",
+                    "executable": "app-Gj6YVp841jVJZZbXV9xXGybk"
+                },
+                "archivalState": "live"
+            }
+        },
+        {
+            "project": "project-Gk7bv204fz4YVzb8Yp0BYjG2",
+            "id": "file-GkBypqj4X9G88J6j360gQJbB",
+            "describe": {
+                "id": "file-GkBypqj4X9G88J6j360gQJbB",
+                "name": "222222222-9876R54321-24NGCEN41-9527-F-99347387_R45.1_SNV_1.xlsx",
+                "createdBy": {
+                    "user": "user-1",
+                    "job": "job-GkBy0k04fz4Y4BG6yv38XkzQ",
+                    "executable": "app-Gj6YVp841jVJZZbXV9xXGybk"
+                },
+                "archivalState": "live"
+            }
+        }
+    ]
+
+    def test_identifiers_parsed_correctly(self):
+        """
+        Test that for each item we correctly return:
+            - project ID
+            - full samplename
+            - instrument ID
+            - specimen ID
+        """
+        expected_return = [
+            {
+                "project": "project-Gk7bv204fz4YVzb8Yp0BYjG2",
+                "sample": "111111111-12345R6789-24NGCEN41-9527-F-99347387",
+                "instrument_id": "111111111",
+                "specimen_id": "12345R6789"
+            },
+            {
+                "project": "project-Gk7bv204fz4YVzb8Yp0BYjG2",
+                "sample": "222222222-9876R54321-24NGCEN41-9527-F-99347387",
+                "instrument_id": "222222222",
+                "specimen_id": "9876R54321"
+            }
+        ]
+
+        parsed_return = utils.parse_sample_identifiers(self.find_data_return)
+
+        assert expected_return == parsed_return, (
+            "sample identifiers incorrectly parsed from reports data"
+        )
 
 
+    def test_duplicates_correctly_returned(self):
+        """
+        Test that for each item we correctly return:
+            - project ID
+            - full samplename
+            - instrument ID
+            - specimen ID
+        """
+        # copy and add in an additional report return for the same sample
+        # that already exists
+        find_data_copy = deepcopy(self.find_data_return)
+        find_data_copy.append(
+            {
+                "project": "project-Gk7bv204fz4YVzb8Yp0BYjG2",
+                "id": "file-GkBzX88477Zqq5G74ff7qVV5",
+                "describe": {
+                    "id": "file-GkBzX88477Zqq5G74ff7qVV5",
+                    "name": "111111111-12345R6789-24NGCEN41-9527-F-99347387_R208.1_SNV_1.xlsx",
+                    "createdBy": {
+                        "user": "user-1",
+                        "job": "job-GkBz2f04fz4g4XpK4ykgZq3p",
+                        "executable": "app-Gj6YVp841jVJZZbXV9xXGybk"
+                    },
+                    "archivalState": "live"
+                }
+            }
+        )
+
+        expected_return = [
+            {
+                "project": "project-Gk7bv204fz4YVzb8Yp0BYjG2",
+                "sample": "111111111-12345R6789-24NGCEN41-9527-F-99347387",
+                "instrument_id": "111111111",
+                "specimen_id": "12345R6789"
+            },
+            {
+                "project": "project-Gk7bv204fz4YVzb8Yp0BYjG2",
+                "sample": "222222222-9876R54321-24NGCEN41-9527-F-99347387",
+                "instrument_id": "222222222",
+                "specimen_id": "9876R54321"
+            }
+        ]
+
+        parsed_return = utils.parse_sample_identifiers(self.find_data_return)
+
+        assert expected_return == parsed_return, (
+            "sample identifiers incorrectly parsed from reports data"
+        )
+
+
+    def test_invalid_report_names_raise_runtime_error(self):
+        """
+        Test that where a file name we use to parse identifiers from
+        doesn't pass the basic regex that an error is correctly raised
+        """
+        # minimal set of describe objects with invalid identifiers
+        invalid_names = [
+            {
+                'describe': {
+                    'name': 'X12345.xlsx'
+                }
+            },
+            {
+                'describe': {
+                    'name': 'X12345-1234.xlsx'
+                }
+            },
+            {
+                'describe': {
+                    'name': 'X12345_1234.xlsx'
+                }
+            },
+        ]
+
+        for sample in invalid_names:
+            error = (
+                "ERROR: xlsx reports found that specimen and instrument "
+                f"IDs could not be parsed from: {sample['describe']['name']}"
+            )
+
+            with self.subTest() and pytest.raises(RuntimeError, match=error):
+                utils.parse_sample_identifiers([sample])
 
