@@ -340,10 +340,10 @@ def parse_config() -> Union[dict, dict]:
     dict
         mapping of project IDs -> Dias single paths
     """
-    config = path.abspath(path.join(
+    config = path.join(
         path.dirname(path.abspath(__file__)),
         "../../configs/manually_selected.json"
-    ))
+    )
 
     with open(config) as fh:
         contents = json.load(fh)
