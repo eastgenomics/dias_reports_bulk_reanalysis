@@ -81,7 +81,6 @@ class TestGroupSamplesByProject(unittest.TestCase):
     are from that comes from the report job details, and splits this into
     per project dictionary of samples.
     """
-
     # data as returned from utils.parse_sample_identifiers
     sample_data = [
         {
@@ -318,14 +317,223 @@ class TestAddClarityDataBackToSamples(unittest.TestCase):
 
 class TestLimitSamples(unittest.TestCase):
     """
-    TODO
+    Tests for utils.limit_samples
+
+    Function takes in the list of samples and an integer limit and / or
+    start / end date for which to restrict retaining samples. The
+    booked in date from Clarity is used for date range restriction.
     """
-    pass
+    # data as returned from utils.parse_sample_identifiers
+    sample_data = [
+        {
+            "project": "project-xxx",
+            'sample': '111111-23251R0041',
+            'instrument_id': '111111',
+            'specimen_id': '23251R0041',
+            'codes': ['R134'],
+            'date': datetime(2023, 9, 22, 0, 0)
+        },
+        {
+            "project": "project-xxx",
+            'sample': '222222-23251R0042',
+            'instrument_id': '222222',
+            'specimen_id': '23251R0042',
+            'codes': ['R134'],
+            'date': datetime(2023, 10, 25, 0, 0)
+        },
+        {
+            "project": "project-yyy",
+            'sample': '3333333-23251R0043',
+            'instrument_id': '333333',
+            'specimen_id': '23251R0043',
+            'codes': ['R134'],
+            'date': datetime(2023, 3, 4, 0, 0)
+        },
+        {
+            "project": "project-zzz",
+            'sample': '444444-23251R0044',
+            'instrument_id': '444444',
+            'specimen_id': '23251R0044',
+            'codes': ['R134'],
+            'date': datetime(2023, 2, 27, 0, 0)
+        }
+    ]
+
+    def test_integer_limit_works(self):
+        """
+        Test that limit parameter works as expected, this should take
+        the oldest n samples from the provided list.
+
+        With limit of 2 we will expect to keep samples '3333333-23251R0043'
+        and '444444-23251R0044'
+        """
+        limited_samples = utils.limit_samples(
+            samples=self.sample_data,
+            limit=2
+        )
+
+        expected_samples = [
+            {
+                "project": "project-zzz",
+                'sample': '444444-23251R0044',
+                'instrument_id': '444444',
+                'specimen_id': '23251R0044',
+                'codes': ['R134'],
+                'date': datetime(2023, 2, 27, 0, 0)
+            },
+            {
+                "project": "project-yyy",
+                'sample': '3333333-23251R0043',
+                'instrument_id': '333333',
+                'specimen_id': '23251R0043',
+                'codes': ['R134'],
+                'date': datetime(2023, 3, 4, 0, 0)
+            }
+        ]
+
+        assert limited_samples == expected_samples, (
+            'limiting samples with integer limit incorrect'
+        )
 
 
+    def test_limit_with_start_date(self):
+        """
+        Test when only start date provided limiting works as expected.
+
+        Set date to 1st June => retain first 2 samples
+        """
+        limited_samples = utils.limit_samples(
+            samples=self.sample_data,
+            start='230601'
+        )
+
+        expected_samples = [
+            {
+                "project": "project-xxx",
+                'sample': '111111-23251R0041',
+                'instrument_id': '111111',
+                'specimen_id': '23251R0041',
+                'codes': ['R134'],
+                'date': datetime(2023, 9, 22, 0, 0)
+            },
+            {
+                "project": "project-xxx",
+                'sample': '222222-23251R0042',
+                'instrument_id': '222222',
+                'specimen_id': '23251R0042',
+                'codes': ['R134'],
+                'date': datetime(2023, 10, 25, 0, 0)
+            }
+        ]
+
+        assert limited_samples == expected_samples, (
+            "incorrect samples retained with start date limit"
+        )
 
 
+    def test_limit_with_end_date(self):
+        """
+        Test when only end date provided limiting works as expected.
 
+        Set date to 1st June => retain last 2 samples
+        """
+        limited_samples = utils.limit_samples(
+            samples=self.sample_data,
+            end='230601'
+        )
+
+        expected_samples = [
+            {
+                "project": "project-zzz",
+                'sample': '444444-23251R0044',
+                'instrument_id': '444444',
+                'specimen_id': '23251R0044',
+                'codes': ['R134'],
+                'date': datetime(2023, 2, 27, 0, 0)
+            },
+            {
+                "project": "project-yyy",
+                'sample': '3333333-23251R0043',
+                'instrument_id': '333333',
+                'specimen_id': '23251R0043',
+                'codes': ['R134'],
+                'date': datetime(2023, 3, 4, 0, 0)
+            }
+        ]
+
+        assert limited_samples == expected_samples, (
+            "incorrect samples retained with end date limit"
+        )
+
+
+    def test_limit_with_start_and_end_date(self):
+        """
+        Test that with a start and end date provided that limiting works
+        as expected.
+
+        Set start to 1st March and end date to 1st June => retain just
+        sample '3333333-23251R0043' booked in on 4th March
+        """
+        limited_samples = utils.limit_samples(
+            samples=self.sample_data,
+            start='230301',
+            end='230601'
+        )
+
+        expected_samples = [
+            {
+                "project": "project-yyy",
+                'sample': '3333333-23251R0043',
+                'instrument_id': '333333',
+                'specimen_id': '23251R0043',
+                'codes': ['R134'],
+                'date': datetime(2023, 3, 4, 0, 0)
+            }
+        ]
+
+        assert limited_samples == expected_samples, (
+            'incorrect samples retained with start and end date'
+        )
+
+
+    def test_limit_with_integer_and_date_range(self):
+        """
+        Test that when integer and date range provided limiting works
+        as expected.
+
+        With limit of 2, start 1st March and end 1st December that only
+        samples '3333333-23251R0043' and '111111-23251R0041' are
+        retained
+        """
+        limited_samples = utils.limit_samples(
+            samples=self.sample_data,
+            limit=2,
+            start='230301',
+            end='231201'
+        )
+
+        expected_samples = [
+            {
+                "project": "project-yyy",
+                'sample': '3333333-23251R0043',
+                'instrument_id': '333333',
+                'specimen_id': '23251R0043',
+                'codes': ['R134'],
+                'date': datetime(2023, 3, 4, 0, 0)
+            },
+            {
+                "project": "project-xxx",
+                'sample': '111111-23251R0041',
+                'instrument_id': '111111',
+                'specimen_id': '23251R0041',
+                'codes': ['R134'],
+                'date': datetime(2023, 9, 22, 0, 0)
+            }
+        ]
+
+        assert limited_samples == expected_samples, (
+            'incorrect samples retained with integer and date range limits'
+        )
 
 
 class TestParseConfig(unittest.TestCase):
