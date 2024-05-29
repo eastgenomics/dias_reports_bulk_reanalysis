@@ -433,3 +433,132 @@ def parse_sample_identifiers(reports) -> list:
     samples = [dict(s) for s in set(frozenset(d.items()) for d in samples)]
 
     return samples
+
+
+def split_genepanels_test_codes(genepanels) -> pd.DataFrame:
+    """
+    Split out R/C codes from full CI name for easier matching
+    against manifest
+
+    Taken from eggd_dias_batch.utils.split_genepanels_test_codes:
+    https://github.com/eastgenomics/eggd_dias_batch/blob/b63a04e2d421a246017e984efcc2a9eef85fbeaf/resources/home/dnanexus/dias_batch/utils/utils.py#L351C1-L405C22
+
+    +-----------------------+--------------------------+
+    |      indication      |        panel_name         |
+    +-----------------------+--------------------------+
+    | C1.1_Inherited Stroke | CUH_Inherited Stroke_1.0 |
+    | C2.1_INSR             | CUH_INSR_1.0             |
+    +-----------------------+--------------------------+
+
+                                    |
+                                    ▼
+
+    +-----------+-----------------------+---------------------------+
+    | test_code |      indication      |        panel_name          |
+    +-----------+-----------------------+---------------------------+
+    | C1.1      | C1.1_Inherited Stroke |  CUH_Inherited Stroke_1.0 |
+    | C2.1      | C2.1_INSR             |  CUH_INSR_1.0             |
+    +-----------+-----------------------+---------------------------+
+
+
+    Parameters
+    ----------
+    genepanels : pd.DataFrame
+        dataframe of genepanels with 3 columns
+
+    Returns
+    -------
+    pd.DataFrame
+        genepanels with test code split to separate column
+
+    Raises
+    ------
+    RuntimeError
+        Raised when test code links to more than one clinical indication
+    """
+    genepanels['test_code'] = genepanels['indication'].apply(
+        lambda x: x.split('_')[0] if re.match(r'[RC][\d]+\.[\d]+', x) else x
+    )
+    genepanels = genepanels[['test_code', 'indication', 'panel_name']]
+
+    # sense check test code only points to one unique indication
+    for code in set(genepanels['test_code'].tolist()):
+        code_rows = genepanels[genepanels['test_code'] == code]
+        if len(set(code_rows['indication'].tolist())) > 1:
+            raise RuntimeError(
+                f"Test code {code} linked to more than one indication in "
+                f"genepanels!\n\t{code_rows['indication'].tolist()}"
+            )
+
+    print(f"Genepanels file: \n{genepanels}")
+
+    return genepanels
+
+
+def validate_test_codes(all_sample_data, genepanels):
+    """
+    Parse through manifest dict of sampleID -> test codes to check
+    all codes are valid and exclude those that are invalid against
+    genepanels file
+
+    Parameters
+    ----------
+    manifest : dict
+        mapping of sampleID -> test codes
+    genepanels : pd.DataFrame
+        dataframe of genepanels file
+
+    Returns
+    -------
+    dict
+        dict of manifest with valid test codes
+
+    Raises
+    ------
+    RuntimeError
+        Raised if any invalid test codes requested for one or more samples
+    """
+    print("\n \nChecking test codes in manifest are valid")
+    invalid = defaultdict(list)
+
+    genepanels = split_genepanels_test_codes(genepanels)
+    genepanels_test_codes = sorted(set(genepanels['test_code'].tolist()))
+
+    print(f"Current valid test codes:\n\t{genepanels_test_codes}")
+
+    for sample_data in all_sample_data:
+        sample = sample_data['sample']
+        test_codes = sample_data['codes']
+        sample_invalid_test = []
+
+        if test_codes == []:
+            # sample has no booked tests => chuck it in the error bucket
+            invalid[sample].append('No tests booked for sample')
+            continue
+
+        for test in test_codes:
+            if test in genepanels_test_codes or re.search(r'HGNC:[\d]+', test):
+                continue
+            elif test.lower().replace(' ', '') == 'researchuse':
+                # more Epic weirdness, chuck these out but don't break
+                print(
+                    f"WARNING: {sample} booked for '{test}' test, "
+                    f"skipping this test code and continuing..."
+                )
+            else:
+                sample_invalid_test.append(test)
+
+        if sample_invalid_test:
+            # sample had one or more invalid test code
+            invalid[sample].extend(sample_invalid_test)
+
+    if invalid:
+        printable_invalid = "\n\t".join(
+            f"{k} : {v}" for k, v in invalid.items()
+        )
+        raise RuntimeError(
+            f"One or more samples had an invalid test code requested:\n\t"
+            f"{printable_invalid}"
+        )
+    else:
+        print("All sample test codes valid!")
