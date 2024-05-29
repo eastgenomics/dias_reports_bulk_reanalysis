@@ -443,6 +443,97 @@ def get_single_dir(project, selected_paths) -> str:
     return paths
 
 
+def get_latest_dias_batch_app() -> str:
+    """
+    Get the app ID of the latest eggd_dias_batch
+
+    Returns
+    -------
+    str
+        app ID of latest version of eggd_dias_batch
+
+    Raises
+    ------
+    AssertionError
+        Raised if no matching app found
+    """
+    app = list(dxpy.bindings.search.find_apps(
+        name='eggd_dias_batch',
+        name_mode='exact',
+        published=True
+    ))
+
+    assert app, "No app found for eggd_dias_batch"
+
+    return app[0][id]
+
+
+def run_batch(
+    project,
+    batch_app_id,
+    cnv_job,
+    single_path,
+    manifest,
+    name,
+    batch_inputs,
+    assay,
+    terminate,
+    ) -> str:
+    """
+    Runs dias batch in the specified project
+
+    Parameters
+    ----------
+    project : str
+        project ID of where to run dias batch
+    batch_app_id : str
+        app ID of latest version of eggd_dias_batch
+    cnv_job : str | None
+        job ID of CNV calling to pass to batch
+    single_path : str
+        path to Dias single output
+    manifest : str
+        file ID of uploaded manifest
+    name : str
+        name to use for batch job
+    batch_inputs : dict
+        dict of additional inputs to provide to dias_batch
+    assay : str
+        assay running analysis for
+    terminate : bool
+        controls if to terminate jobs launched by dias batch (for testing)
+
+    Returns
+    -------
+    str
+        job ID of launched dias batch job
+    """
+    # only run CNV reports if we have a CNV job ID
+    cnv_reports = True if cnv_job else False
+
+    app_input = {
+        "cnv_call_job_id": cnv_job,
+        "cnv_reports": cnv_reports,
+        "snv_reports": True,
+        "artemis": True,
+        "manifest_files": [{"$dnanexus_link": manifest}],
+        "single_output_dir": single_path,
+        "assay": assay,
+        "testing": terminate,
+    }
+
+    if batch_inputs:
+        app_input = {**app_input, **batch_inputs}
+
+    job = dxpy.DXApp(batch_app_id).run(
+        app_input=app_input, project=project, name=name
+    )
+
+    print(f"Launched dias batch job {job.id} in {project}")
+
+    return job.id
+
+
 def read_genepanels_file() -> pd.DataFrame:
     """
     Read latest genepanels file into DataFrame from 001_Reference
@@ -515,7 +606,6 @@ def read_genepanels_file() -> pd.DataFrame:
     genepanels.reset_index(inplace=True)
 
     return genepanels
-
 
 
 def upload_manifest(manifest, path) -> str:
