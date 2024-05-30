@@ -424,7 +424,6 @@ def parse_sample_identifiers(reports) -> list:
     """
     # basic sense check that we don't have anything named like X12345.xlsx
     # that won't pass the below parsing
-    # TODO - decide if this should just be a warning and log or error
     invalid = [
         x['describe']['name'] for x in reports if not
         re.match(r'[\w]+-[\w\-]+_[\w\-\.]+\.xlsx', x['describe']['name'])
