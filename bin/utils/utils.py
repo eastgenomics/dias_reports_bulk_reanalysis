@@ -7,9 +7,9 @@ from datetime import datetime
 import json
 from os import path
 import re
+from typing import Union
 
 import pandas as pd
-from typing import Union
 
 
 def call_in_parallel(func, items) -> list:
