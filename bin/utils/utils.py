@@ -32,8 +32,9 @@ def call_in_parallel(func, items) -> list:
     """
     results = []
 
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
-        concurrent_jobs = {executor.submit(func, item) for item in items}
+        concurrent_jobs = {executor.submit(func, item): item for item in items}
 
         for future in concurrent.futures.as_completed(concurrent_jobs):
             # access returned output as each is returned in any order
