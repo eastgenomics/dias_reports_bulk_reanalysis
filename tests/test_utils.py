@@ -112,9 +112,117 @@ class TestDateStrToDatetime(unittest.TestCase):
 
 class TestFilterNonUniqueSpecimenIds(unittest.TestCase):
     """
-    TODO
+    Tests for utils.filter_non_unique_specimen_ids
+
+    Function filters through the list of sample details parsed from
+    report jobs to ensure there is only one per specimen ID
     """
-    pass
+    # data as returned from utils.parse_sample_identifiers
+    unique_specimen_sample_data = [
+        {
+            "project": "project-xxx",
+            'sample': '111111-23251R0041',
+            'instrument_id': '111111',
+            'specimen_id': '23251R0041',
+            'codes': ['R134'],
+            'date': datetime(2023, 9, 22, 0, 0)
+        },
+        {
+            "project": "project-xxx",
+            'sample': '222222-23251R0042',
+            'instrument_id': '222222',
+            'specimen_id': '23251R0042',
+            'codes': ['R134'],
+            'date': datetime(2023, 10, 25, 0, 0)
+        },
+        {
+            "project": "project-yyy",
+            'sample': '3333333-23251R003',
+            'instrument_id': '333333',
+            'specimen_id': '23251R0043',
+            'codes': ['R134'],
+            'date': datetime(2023, 3, 4, 0, 0)
+        },
+        {
+            "project": "project-zzz",
+            'sample': '444444-23251R0044',
+            'instrument_id': '444444',
+            'specimen_id': '23251R0044',
+            'codes': ['R134'],
+            'date': datetime(2023, 2, 27, 0, 0)
+        }
+    ]
+
+    def test_all_unique_correctly_identified(self):
+        """
+        Test where all specimen IDs are unique that the same list of data
+        is returned, and no non-unique are identified
+        """
+        unique, non_unique = utils.filter_non_unique_specimen_ids(
+            self.unique_specimen_sample_data
+        )
+
+        with self.subTest():
+            assert unique == self.unique_specimen_sample_data, (
+                "Unique samples wrongly returned"
+            )
+
+        with self.subTest():
+            assert not non_unique, "Non unique samples wrongly identified"
+
+
+    def test_non_unique_specimen_correctly_identified(self):
+        """
+        Test where there are non-unique specimen identifiers across
+        projects that these are correctly returned
+        """
+        # add in a duplicate specimen ID in another project
+        non_unique_sample_data = deepcopy(self.unique_specimen_sample_data)
+        non_unique_sample_data.append(
+            {
+                "project": "project-xxx",
+                'sample': '111111-23251R0044',
+                'instrument_id': '1111111',
+                'specimen_id': '23251R0044',
+                'codes': ['R134'],
+                'date': datetime(2023, 2, 27, 0, 0)
+            }
+        )
+
+        unique, non_unique = utils.filter_non_unique_specimen_ids(
+            non_unique_sample_data
+        )
+
+        with self.subTest():
+            expected_non_unique = {
+                '23251R0044': [
+                    {
+                        "project": "project-zzz",
+                        'sample': '444444-23251R0044',
+                        'instrument_id': '444444',
+                        'specimen_id': '23251R0044',
+                        'codes': ['R134'],
+                        'date': datetime(2023, 2, 27, 0, 0)
+                    },
+                    {
+                        "project": "project-xxx",
+                        'sample': '111111-23251R0044',
+                        'instrument_id': '1111111',
+                        'specimen_id': '23251R0044',
+                        'codes': ['R134'],
+                        'date': datetime(2023, 2, 27, 0, 0)
+                    }
+                ]
+            }
+
+            assert non_unique == expected_non_unique, (
+                "Non unique specimens not correctly identified"
+            )
+
+        with self.subTest():
+            assert unique == self.unique_specimen_sample_data[:-1], (
+                "unique samples wrongly idenfitied where non-unique are present"
+            )
 
 
 class TestFilterClaritySamplesWithNoReports(unittest.TestCase):
@@ -585,6 +693,7 @@ class TestLimitSamples(unittest.TestCase):
         assert limited_samples == expected_samples, (
             'incorrect samples retained with integer and date range limits'
         )
+
 
 class TestParseConfig(unittest.TestCase):
     """
