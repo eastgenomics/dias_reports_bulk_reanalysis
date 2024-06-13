@@ -50,7 +50,7 @@ class TestCallInParallel(unittest.TestCase):
         ]
 
         assert sorted(returned_output) == expected_output, (
-            'parallel called funtion output incorrect'
+            'parallel called function output incorrect'
         )
 
 
