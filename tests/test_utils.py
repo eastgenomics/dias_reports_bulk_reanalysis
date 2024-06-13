@@ -11,9 +11,59 @@ from bin.utils import utils
 
 class TestCallInParallel(unittest.TestCase):
     """
-    TODO
+    Tests for utils.call_in_paralllel
+
+    Function takes another function name and iterable as input, and calls
+    the function for each item in parallel. This is primarily used for
+    querying dxpy in parallel.
     """
-    pass
+
+    @patch('bin.utils.utils.date_str_to_datetime')
+    def test_number_of_calls(self, mock_date):
+        """
+        Test that the specific function is called the correct number of times
+        """
+        utils.call_in_parallel(
+            utils.date_str_to_datetime,
+            ['230101', '230503', '240601']
+        )
+
+        assert mock_date.call_count == 3, (
+            'function not called correctly in parallel'
+        )
+
+
+    def test_output_correct(self):
+        """
+        Test that the given function is correctly called and the output
+        is as expected
+        """
+        returned_output = utils.call_in_parallel(
+            utils.date_str_to_datetime,
+            ['230101', '230503', '240601']
+        )
+
+        expected_output = [
+            datetime(year=2023, month=1, day=1),
+            datetime(year=2023, month=5, day=3),
+            datetime(year=2024, month=6, day=1)
+        ]
+
+        assert sorted(returned_output) == expected_output, (
+            'parallel called funtion output incorrect'
+        )
+
+
+    @patch('bin.utils.utils.date_str_to_datetime')
+    def test_exception_raised_if_called_function_raises_exception(self, mock_date):
+        """
+        Test if the called function raises an error that this is correctly
+        passed back to the ThreadPool and an exception raised
+        """
+        mock_date.side_effect = AssertionError('test internal error')
+
+        with pytest.raises(AssertionError, match='test internal error'):
+            utils.call_in_parallel(utils.date_str_to_datetime, ['230101'])
 
 
 class TestDateStrToDatetime(unittest.TestCase):
