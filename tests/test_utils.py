@@ -1,12 +1,18 @@
 from copy import deepcopy
 from datetime import datetime, timedelta
-from os import path
+import os
 import unittest
 from unittest.mock import patch
 
+import pandas as pd
 import pytest
 
 from bin.utils import utils
+
+
+TEST_DATA_DIR = (
+    os.path.join(os.path.dirname(__file__), 'test_data')
+)
 
 
 class TestCallInParallel(unittest.TestCase):
@@ -603,7 +609,7 @@ class TestParseConfig(unittest.TestCase):
         dicts of the cnv call job IDs and Dias single paths
         """
         mock_join.return_value = (
-            f"{path.dirname(path.abspath(__file__))}"
+            f"{os.path.dirname(os.path.abspath(__file__))}"
             "/test_data/manually_selected.json"
         )
 
@@ -689,4 +695,76 @@ class TestParseSampleIdentifiers(unittest.TestCase):
     pass
 
 
+class TestSplitGenePanelsTestCodes():
+    """
+    Tests for utils.split_genepanels_test_codes()
 
+    Function takes the read in genepanels file and splits out the test code
+    that prefixes the clinical indication (i.e. R337.1 -> R337.1_CADASIL_G)
+    """
+    # read in genepanels file in the same manner as utils.parse_genepanels()
+    # up to the point of calling split_gene_panels_test_codes()
+    with open(f"{TEST_DATA_DIR}/genepanels.tsv") as file_handle:
+        # parse genepanels file like is done in dias_batch.main()
+        genepanels_data = file_handle.read().splitlines()
+        genepanels = pd.DataFrame(
+            [x.split('\t') for x in genepanels_data],
+            columns=['indication', 'panel_name', 'hgnc_id']
+        )
+        genepanels.drop(columns=['hgnc_id'], inplace=True)  # chuck away HGNC ID
+        genepanels.drop_duplicates(keep='first', inplace=True)
+        genepanels.reset_index(inplace=True)
+
+
+    def test_genepanels_unchanged_by_splitting(self):
+        """
+        Test that no rows get added or removed
+        """
+        panel_df = utils.split_genepanels_test_codes(self.genepanels)
+
+        current_indications = self.genepanels['indication'].tolist()
+        split_indications = panel_df['indication'].tolist()
+
+        assert current_indications == split_indications, (
+            'genepanels indications changed when splitting test codes'
+        )
+
+    def test_splitting_r_code(self):
+        """
+        Test splitting of R code from a clinical indication works
+        """
+        panel_df = utils.split_genepanels_test_codes(self.genepanels)
+        r337_code = panel_df[panel_df['indication'] == 'R337.1_CADASIL_G']
+
+        assert r337_code['test_code'].tolist() == ['R337.1'], (
+            "Incorrect R test code parsed from clinical indication"
+        )
+
+    def test_splitting_c_code(self):
+        """
+        Test splitting of C code from a clinical indication works
+        """
+        panel_df = utils.split_genepanels_test_codes(self.genepanels)
+        c1_code = panel_df[panel_df['indication'] == 'C1.1_Inherited Stroke']
+
+        assert c1_code['test_code'].tolist() == ['C1.1'], (
+            "Incorrect C test code parsed from clinical indication"
+        )
+
+    def test_catch_multiple_indication_for_one_test_code(self):
+        """
+        We have a check that if a test code links to more than one clinical
+        indication (which it shouldn't), we can add in a duplicate and test
+        that this gets caught
+        """
+        genepanels_copy = deepcopy(self.genepanels)
+        genepanels_copy = pd.concat([genepanels_copy,
+            pd.DataFrame([{
+                'test_code': 'R337.1',
+                'indication': 'R337.1_CADASIL_G_COPY',
+                'panel_name': 'R337.1_CADASIL_G_COPY'
+            }])
+        ])
+
+        with pytest.raises(RuntimeError):
+            utils.split_genepanels_test_codes(genepanels_copy)
