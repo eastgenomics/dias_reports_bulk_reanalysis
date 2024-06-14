@@ -586,6 +586,7 @@ class TestLimitSamples(unittest.TestCase):
             'incorrect samples retained with integer and date range limits'
         )
 
+
 class TestParseConfig(unittest.TestCase):
     """
     Tests for utils.parse_config
@@ -633,9 +634,52 @@ class TestParseConfig(unittest.TestCase):
 
 class TestParseClarityExport(unittest.TestCase):
     """
-    TODO
+    Tests for utils.parse_clarity_export
+
+    Function reads in an export from Clarity in xlsx format, parsing out
+    the specimen ID, booked tests and booked in date. This is then
+    returned as a structured dict containing the required information.
     """
-    pass
+    clarity_export_file = (
+        f"{path.dirname(path.abspath(__file__))}"
+        "/test_data/example_clarity_export.xlsx"
+    )
+
+    def test_correctly_parsed(self):
+        """
+        Test that the export is correctly parsed.
+
+        The test data contains 5 samples, 4 of which should be parsed as
+        they are at the stage `Resulted`, and one should be excluded that
+        has the state `Cancelled`.
+
+        Other behaviour that is expected:
+            - `SP-` stripped from specimen IDs
+            - received date parsed as valid datetime object
+            - data returned as dict mapping specimen ID -> test codes
+                and received date
+        """
+
+        parsed_export = utils.parse_clarity_export(self.clarity_export_file)
+
+        expected_format = {
+            "24095R01111": {
+                "codes": ["R134.1", "R134.2"],
+                "date": datetime(2024, 4, 8, 0, 0)
+            },
+            "24053R02222": {
+                "codes": ["R134.1", "R134.2"],
+                "date": datetime(2024, 2, 27, 0, 0)
+            },
+            "24057R03333": {
+                "codes": ["R414.1", "R414.2"],
+                "date": datetime(2024, 2, 26, 0, 0)
+            }
+        }
+
+        assert parsed_export == expected_format, (
+            "clarity export incorrectly parsed"
+        )
 
 
 class TestParseSampleIdentifiers(unittest.TestCase):
