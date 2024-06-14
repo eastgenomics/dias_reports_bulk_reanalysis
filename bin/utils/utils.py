@@ -32,8 +32,9 @@ def call_in_parallel(func, items) -> list:
     """
     results = []
 
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
-        concurrent_jobs = {executor.submit(func, item) for item in items}
+        concurrent_jobs = {executor.submit(func, item): item for item in items}
 
         for future in concurrent.futures.as_completed(concurrent_jobs):
             # access returned output as each is returned in any order
@@ -374,26 +375,20 @@ def parse_clarity_export(export_file) -> dict:
     clarity_df = clarity_df[clarity_df['Test Validation Status'] == 'Resulted']
 
     clarity_df = clarity_df[
-        clarity_df['Test Directory Clinical Indication'] != 'Research Use'
+        clarity_df['Test Directory Test Code'] != 'Research Use'
     ]
 
-    clarity_df['Test Directory Clinical Indication'].fillna(
-        value='', inplace=True
-    )
+    clarity_df['Test Directory Test Code'].fillna(value='', inplace=True)
 
     # turn the date time column into just valid date type
     clarity_df['Received Specimen Date Time'] = pd.to_datetime(
         clarity_df['Received Specimen Date Time']
     ).dt.strftime('%y%m%d')
 
-    # TODO - need to figure out if to use the Clinical Indication column
-    # to get the test code from or the Test Code column, they seem to differ
-    # so need to know which is correct
-
     # generate mapping of specimen ID to list of test codes and booked date
     sample_code_mapping = {
         x['Specimen Identifier']: {
-            'codes': x['Test Directory Clinical Indication'].split('|'),
+            'codes': x['Test Directory Test Code'].split('|'),
             'date': date_str_to_datetime(x['Received Specimen Date Time'])
         } for x in clarity_df.to_dict('records')
     }

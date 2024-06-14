@@ -1,19 +1,75 @@
 from copy import deepcopy
 from datetime import datetime, timedelta
-from os import path
+import os
 import unittest
 from unittest.mock import patch
 
+import pandas as pd
 import pytest
 
 from bin.utils import utils
 
 
+TEST_DATA_DIR = (
+    os.path.join(os.path.dirname(__file__), 'test_data')
+)
+
+
 class TestCallInParallel(unittest.TestCase):
     """
-    TODO
+    Tests for utils.call_in_paralllel
+
+    Function takes another function name and iterable as input, and calls
+    the function for each item in parallel. This is primarily used for
+    querying dxpy in parallel.
     """
-    pass
+
+    @patch('bin.utils.utils.date_str_to_datetime')
+    def test_number_of_calls(self, mock_date):
+        """
+        Test that the specific function is called the correct number of times
+        """
+        utils.call_in_parallel(
+            utils.date_str_to_datetime,
+            ['230101', '230503', '240601']
+        )
+
+        assert mock_date.call_count == 3, (
+            'function not called correctly in parallel'
+        )
+
+
+    def test_output_correct(self):
+        """
+        Test that the given function is correctly called and the output
+        is as expected
+        """
+        returned_output = utils.call_in_parallel(
+            utils.date_str_to_datetime,
+            ['230101', '230503', '240601']
+        )
+
+        expected_output = [
+            datetime(year=2023, month=1, day=1),
+            datetime(year=2023, month=5, day=3),
+            datetime(year=2024, month=6, day=1)
+        ]
+
+        assert sorted(returned_output) == expected_output, (
+            'parallel called function output incorrect'
+        )
+
+
+    @patch('bin.utils.utils.date_str_to_datetime')
+    def test_exception_raised_if_called_function_raises_exception(self, mock_date):
+        """
+        Test if the called function raises an error that this is correctly
+        passed back to the ThreadPool and an exception raised
+        """
+        mock_date.side_effect = AssertionError('test internal error')
+
+        with pytest.raises(AssertionError, match='test internal error'):
+            utils.call_in_parallel(utils.date_str_to_datetime, ['230101'])
 
 
 class TestDateStrToDatetime(unittest.TestCase):
@@ -62,9 +118,117 @@ class TestDateStrToDatetime(unittest.TestCase):
 
 class TestFilterNonUniqueSpecimenIds(unittest.TestCase):
     """
-    TODO
+    Tests for utils.filter_non_unique_specimen_ids
+
+    Function filters through the list of sample details parsed from
+    report jobs to ensure there is only one per specimen ID
     """
-    pass
+    # data as returned from utils.parse_sample_identifiers
+    unique_specimen_sample_data = [
+        {
+            "project": "project-xxx",
+            'sample': '111111-23251R0041',
+            'instrument_id': '111111',
+            'specimen_id': '23251R0041',
+            'codes': ['R134'],
+            'date': datetime(2023, 9, 22, 0, 0)
+        },
+        {
+            "project": "project-xxx",
+            'sample': '222222-23251R0042',
+            'instrument_id': '222222',
+            'specimen_id': '23251R0042',
+            'codes': ['R134'],
+            'date': datetime(2023, 10, 25, 0, 0)
+        },
+        {
+            "project": "project-yyy",
+            'sample': '3333333-23251R003',
+            'instrument_id': '333333',
+            'specimen_id': '23251R0043',
+            'codes': ['R134'],
+            'date': datetime(2023, 3, 4, 0, 0)
+        },
+        {
+            "project": "project-zzz",
+            'sample': '444444-23251R0044',
+            'instrument_id': '444444',
+            'specimen_id': '23251R0044',
+            'codes': ['R134'],
+            'date': datetime(2023, 2, 27, 0, 0)
+        }
+    ]
+
+    def test_all_unique_correctly_identified(self):
+        """
+        Test where all specimen IDs are unique that the same list of data
+        is returned, and no non-unique are identified
+        """
+        unique, non_unique = utils.filter_non_unique_specimen_ids(
+            self.unique_specimen_sample_data
+        )
+
+        with self.subTest():
+            assert unique == self.unique_specimen_sample_data, (
+                "Unique samples wrongly returned"
+            )
+
+        with self.subTest():
+            assert not non_unique, "Non unique samples wrongly identified"
+
+
+    def test_non_unique_specimen_correctly_identified(self):
+        """
+        Test where there are non-unique specimen identifiers across
+        projects that these are correctly returned
+        """
+        # add in a duplicate specimen ID in another project
+        non_unique_sample_data = deepcopy(self.unique_specimen_sample_data)
+        non_unique_sample_data.append(
+            {
+                "project": "project-xxx",
+                'sample': '111111-23251R0044',
+                'instrument_id': '1111111',
+                'specimen_id': '23251R0044',
+                'codes': ['R134'],
+                'date': datetime(2023, 2, 27, 0, 0)
+            }
+        )
+
+        unique, non_unique = utils.filter_non_unique_specimen_ids(
+            non_unique_sample_data
+        )
+
+        with self.subTest():
+            expected_non_unique = {
+                '23251R0044': [
+                    {
+                        "project": "project-zzz",
+                        'sample': '444444-23251R0044',
+                        'instrument_id': '444444',
+                        'specimen_id': '23251R0044',
+                        'codes': ['R134'],
+                        'date': datetime(2023, 2, 27, 0, 0)
+                    },
+                    {
+                        "project": "project-xxx",
+                        'sample': '111111-23251R0044',
+                        'instrument_id': '1111111',
+                        'specimen_id': '23251R0044',
+                        'codes': ['R134'],
+                        'date': datetime(2023, 2, 27, 0, 0)
+                    }
+                ]
+            }
+
+            assert non_unique == expected_non_unique, (
+                "Non unique specimens not correctly identified"
+            )
+
+        with self.subTest():
+            assert unique == self.unique_specimen_sample_data[:-1], (
+                "unique samples wrongly idenfitied where non-unique are present"
+            )
 
 
 class TestFilterClaritySamplesWithNoReports(unittest.TestCase):
@@ -553,7 +717,7 @@ class TestParseConfig(unittest.TestCase):
         dicts of the cnv call job IDs and Dias single paths
         """
         mock_join.return_value = (
-            f"{path.dirname(path.abspath(__file__))}"
+            f"{os.path.dirname(os.path.abspath(__file__))}"
             "/test_data/manually_selected.json"
         )
 
@@ -584,9 +748,52 @@ class TestParseConfig(unittest.TestCase):
 
 class TestParseClarityExport(unittest.TestCase):
     """
-    TODO
+    Tests for utils.parse_clarity_export
+
+    Function reads in an export from Clarity in xlsx format, parsing out
+    the specimen ID, booked tests and booked in date. This is then
+    returned as a structured dict containing the required information.
     """
-    pass
+    clarity_export_file = (
+        f"{os.path.dirname(os.path.abspath(__file__))}"
+        "/test_data/example_clarity_export.xlsx"
+    )
+
+    def test_correctly_parsed(self):
+        """
+        Test that the export is correctly parsed.
+
+        The test data contains 5 samples, 4 of which should be parsed as
+        they are at the stage `Resulted`, and one should be excluded that
+        has the state `Cancelled`.
+
+        Other behaviour that is expected:
+            - `SP-` stripped from specimen IDs
+            - received date parsed as valid datetime object
+            - data returned as dict mapping specimen ID -> test codes
+                and received date
+        """
+
+        parsed_export = utils.parse_clarity_export(self.clarity_export_file)
+
+        expected_format = {
+            "24095R01111": {
+                "codes": ["R134.1", "R134.2"],
+                "date": datetime(2024, 4, 8, 0, 0)
+            },
+            "24053R02222": {
+                "codes": ["R134.1", "R134.2"],
+                "date": datetime(2024, 2, 27, 0, 0)
+            },
+            "24057R03333": {
+                "codes": ["R414.1", "R414.2"],
+                "date": datetime(2024, 2, 26, 0, 0)
+            }
+        }
+
+        assert parsed_export == expected_format, (
+            "clarity export incorrectly parsed"
+        )
 
 
 class TestParseSampleIdentifiers(unittest.TestCase):
@@ -745,3 +952,77 @@ class TestParseSampleIdentifiers(unittest.TestCase):
             with self.subTest() and pytest.raises(RuntimeError, match=error):
                 utils.parse_sample_identifiers([sample])
 
+class TestSplitGenePanelsTestCodes():
+    """
+    Tests for utils.split_genepanels_test_codes()
+
+    Function takes the read in genepanels file and splits out the test code
+    that prefixes the clinical indication (i.e. R337.1 -> R337.1_CADASIL_G)
+    """
+    # read in genepanels file in the same manner as utils.parse_genepanels()
+    # up to the point of calling split_gene_panels_test_codes()
+    with open(f"{TEST_DATA_DIR}/genepanels.tsv") as file_handle:
+        # parse genepanels file like is done in dias_batch.main()
+        genepanels_data = file_handle.read().splitlines()
+        genepanels = pd.DataFrame(
+            [x.split('\t') for x in genepanels_data],
+            columns=['indication', 'panel_name', 'hgnc_id']
+        )
+        genepanels.drop(columns=['hgnc_id'], inplace=True)  # chuck away HGNC ID
+        genepanels.drop_duplicates(keep='first', inplace=True)
+        genepanels.reset_index(inplace=True)
+
+
+    def test_genepanels_unchanged_by_splitting(self):
+        """
+        Test that no rows get added or removed
+        """
+        panel_df = utils.split_genepanels_test_codes(self.genepanels)
+
+        current_indications = self.genepanels['indication'].tolist()
+        split_indications = panel_df['indication'].tolist()
+
+        assert current_indications == split_indications, (
+            'genepanels indications changed when splitting test codes'
+        )
+
+    def test_splitting_r_code(self):
+        """
+        Test splitting of R code from a clinical indication works
+        """
+        panel_df = utils.split_genepanels_test_codes(self.genepanels)
+        r337_code = panel_df[panel_df['indication'] == 'R337.1_CADASIL_G']
+
+        assert r337_code['test_code'].tolist() == ['R337.1'], (
+            "Incorrect R test code parsed from clinical indication"
+        )
+
+    def test_splitting_c_code(self):
+        """
+        Test splitting of C code from a clinical indication works
+        """
+        panel_df = utils.split_genepanels_test_codes(self.genepanels)
+        c1_code = panel_df[panel_df['indication'] == 'C1.1_Inherited Stroke']
+
+        assert c1_code['test_code'].tolist() == ['C1.1'], (
+            "Incorrect C test code parsed from clinical indication"
+        )
+
+ 
+    def test_catch_multiple_indication_for_one_test_code(self):
+        """
+        We have a check that if a test code links to more than one clinical
+        indication (which it shouldn't), we can add in a duplicate and test
+        that this gets caught
+        """
+        genepanels_copy = deepcopy(self.genepanels)
+        genepanels_copy = pd.concat([genepanels_copy,
+            pd.DataFrame([{
+                'test_code': 'R337.1',
+                'indication': 'R337.1_CADASIL_G_COPY',
+                'panel_name': 'R337.1_CADASIL_G_COPY'
+            }])
+        ])
+
+        with pytest.raises(RuntimeError):
+            utils.split_genepanels_test_codes(genepanels_copy)
