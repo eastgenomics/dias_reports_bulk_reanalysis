@@ -876,3 +876,155 @@ class TestSplitGenePanelsTestCodes():
 
         with pytest.raises(RuntimeError):
             utils.split_genepanels_test_codes(genepanels_copy)
+
+
+class TestValidateTestCodes(unittest.TestCase):
+    """
+    Tests for utils.validate_test_codes()
+
+    Function parses through all samples -> test codes to check they are
+    valid against the genepanels file, this is to ensure nothing will
+    fail launching reports jobs due to having invalid codes in booked
+    """
+    # read in genepanels file in the same manner as
+    # dx_manage.parse_genepanels() up to the point of calling
+    # split_gene_panels_test_codes()
+    with open(f"{TEST_DATA_DIR}/genepanels.tsv") as file_handle:
+        genepanels_data = file_handle.read().splitlines()
+        genepanels = pd.DataFrame(
+            [x.split('\t') for x in genepanels_data],
+            columns=['indication', 'panel_name', 'hgnc_id']
+        )
+        genepanels.drop(columns=['hgnc_id'], inplace=True)  # chuck away HGNC ID
+        genepanels.drop_duplicates(keep='first', inplace=True)
+        genepanels.reset_index(inplace=True)
+
+
+    sample_data = [
+        {
+            "project": "project-xxx",
+            'sample': '111111-23251R0041',
+            'instrument_id': '111111',
+            'specimen_id': '23251R0041',
+            'codes': ['R109.3'],
+            'date': datetime(2023, 9, 22, 0, 0)
+        },
+        {
+            "project": "project-xxx",
+            'sample': '222222-23251R0042',
+            'instrument_id': '222222',
+            'specimen_id': '23251R0042',
+            'codes': ['R134.1'],
+            'date': datetime(2023, 10, 25, 0, 0)
+        },
+        {
+            "project": "project-yyy",
+            'sample': '3333333-23251R0043',
+            'instrument_id': '333333',
+            'specimen_id': '23251R0043',
+            'codes': ['R146.2'],
+            'date': datetime(2023, 3, 4, 0, 0)
+        },
+        {
+            "project": "project-zzz",
+            'sample': '444444-23251R0044',
+            'instrument_id': '444444',
+            'specimen_id': '23251R0044',
+            'codes': ['R257.3'],
+            'date': datetime(2023, 2, 27, 0, 0)
+        }
+    ]
+
+
+    @pytest.fixture(autouse=True)
+    def capsys(self, capsys):
+        """Capture stdout to provide it to tests"""
+        self.capsys = capsys
+
+
+    def test_error_not_raised_on_valid_codes(self):
+        """
+        If all test codes are valid the function should just print
+        to stdout and not raise an error
+        """
+        utils.validate_test_codes(
+            all_sample_data=self.sample_data, genepanels=self.genepanels
+        )
+
+        expected_stdout = 'All sample test codes valid!'
+
+        assert expected_stdout in self.capsys.readouterr().out, (
+            'expected stdout incorrect'
+        )
+
+
+    def test_error_raised_when_sample_has_no_tests(self):
+        """
+        Test we raise an error if a sample has no test codes booked against it
+        """
+        # drop test codes for a booked sample
+        sample_data_copy = deepcopy(self.sample_data)
+        sample_data_copy[0]['codes'] = []
+
+        with pytest.raises(RuntimeError, match=r"No tests booked for sample"):
+            utils.validate_test_codes(
+                all_sample_data=sample_data_copy, genepanels=self.genepanels
+            )
+
+
+    def test_error_raised_when_sample_has_invalid_test_code(self):
+        """
+        RuntimeError should be raised if an invalid test code is provided
+        in the manifest, check that the correct error is returned
+        """
+        # add in an invalid test code to a booked sample
+        sample_data_copy = deepcopy(self.sample_data)
+        sample_data_copy[0]['codes'].append('invalidTestCode')
+
+        with pytest.raises(RuntimeError, match=r"invalidTestCode"):
+            utils.validate_test_codes(
+                all_sample_data=sample_data_copy, genepanels=self.genepanels
+            )
+
+
+    def test_error_not_raised_when_research_use_test_code_present(self):
+        """
+        Sometimes from Epic 'Research Use' can be present in the Test Codes
+        column, we want to skip these as they're not a valid test code and
+        not raise an error
+        """
+        # add in different forms of 'Research Use' as a test code to a
+        # manifest sample
+        sample_data_copy = deepcopy(self.sample_data)
+        sample_data_copy[0]['codes'].extend([
+            'Research Use', 'ResearchUse', 'researchUse', 'research use'
+        ])
+
+        utils.validate_test_codes(
+            all_sample_data=sample_data_copy, genepanels=self.genepanels
+        )
+
+        expected_stdout_success = 'All sample test codes valid!'
+
+        expected_stdout_warning = (
+            "WARNING: 111111-23251R0041 booked for 'Research Use' test, "
+            "skipping this test code and continuing...\n"
+            "WARNING: 111111-23251R0041 booked for 'ResearchUse' test, "
+            "skipping this test code and continuing...\n"
+            "WARNING: 111111-23251R0041 booked for 'researchUse' test, "
+            "skipping this test code and continuing...\n"
+            "WARNING: 111111-23251R0041 booked for 'research use' test, "
+            "skipping this test code and continuing..."
+        )
+
+        stdout = self.capsys.readouterr().out
+
+        with self.subTest():
+            assert expected_stdout_success in stdout, (
+                'expected stdout success incorrect'
+            )
+
+        with self.subTest():
+            assert expected_stdout_warning in stdout, (
+                'expected stdout warnings incorrect'
+            )
