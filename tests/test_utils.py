@@ -727,7 +727,6 @@ class TestSplitGenePanelsTestCodes():
             utils.split_genepanels_test_codes(genepanels_copy)
 
 
-
 class TestValidateTestCodes(unittest.TestCase):
     """
     Tests for utils.validate_test_codes()
@@ -736,10 +735,10 @@ class TestValidateTestCodes(unittest.TestCase):
     valid against the genepanels file, this is to ensure nothing will
     fail launching reports jobs due to having invalid codes in booked
     """
-    # read in genepanels file in the same manner as utils.parse_genepanels()
-    # up to the point of calling split_gene_panels_test_codes()
+    # read in genepanels file in the same manner as
+    # dx_manage.parse_genepanels() up to the point of calling
+    # split_gene_panels_test_codes()
     with open(f"{TEST_DATA_DIR}/genepanels.tsv") as file_handle:
-        # parse genepanels file like is done in dias_batch.main()
         genepanels_data = file_handle.read().splitlines()
         genepanels = pd.DataFrame(
             [x.split('\t') for x in genepanels_data],
@@ -878,4 +877,3 @@ class TestValidateTestCodes(unittest.TestCase):
             assert expected_stdout_warning in stdout, (
                 'expected stdout warnings incorrect'
             )
-
