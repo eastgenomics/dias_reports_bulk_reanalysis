@@ -755,7 +755,7 @@ class TestParseClarityExport(unittest.TestCase):
     returned as a structured dict containing the required information.
     """
     clarity_export_file = (
-        f"{path.dirname(path.abspath(__file__))}"
+        f"{os.path.dirname(os.path.abspath(__file__))}"
         "/test_data/example_clarity_export.xlsx"
     )
 
