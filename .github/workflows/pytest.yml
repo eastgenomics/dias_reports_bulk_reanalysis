@@ -18,4 +18,4 @@ jobs:
         pipenv install --dev
     - name: Test with pytest
       run: |
-        pytest -vv --cov
+        pytest -vv --cov --count 10
