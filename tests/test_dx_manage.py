@@ -17,43 +17,34 @@ class TestCheckArchivalState(unittest.TestCase):
     3 lists of files are returned for live, currently unarchiving and
     unarchived files
     """
+
     # minimal example file detail return from dx_manage.find_in_parallel()
     # with a mix of live, unarchiving and archived files
     returned_file_details = [
         {
             "project": "project-xxx",
             "id": "file-aaa",
-            "describe": {
-                "archivalState": "live"
-            }
+            "describe": {"archivalState": "live"},
         },
         {
             "project": "project-xxx",
             "id": "file-bbb",
-            "describe": {
-                "archivalState": "live"
-            }
+            "describe": {"archivalState": "live"},
         },
         {
             "project": "project-xxx",
             "id": "file-ccc",
-            "describe": {
-                "archivalState": "unarchiving"
-            }
+            "describe": {"archivalState": "unarchiving"},
         },
         {
             "project": "project-xxx",
             "id": "file-aaa",
-            "describe": {
-                "archivalState": "archived"
-            }
+            "describe": {"archivalState": "archived"},
         },
         {
             "project": "project-xxx",
             "id": "file-aaa",
-            "describe": {
-                "archivalState": "archived"
-            }
+            "describe": {"archivalState": "archived"},
         },
     ]
 
@@ -62,8 +53,7 @@ class TestCheckArchivalState(unittest.TestCase):
         """Capture stdout to provide it to tests"""
         self.capsys = capsys
 
-
-    @patch('bin.utils.dx_manage.find_in_parallel')
+    @patch("bin.utils.dx_manage.find_in_parallel")
     def test_all_states_mixed_returned_correctly(self, mock_find):
         """
         Test that we correctly return the given files by their states
@@ -71,54 +61,44 @@ class TestCheckArchivalState(unittest.TestCase):
         mock_find.return_value = self.returned_file_details
 
         live, unarchiving, archived = dx_manage.check_archival_state(
-            project='project-xxx',
+            project="project-xxx",
             sample_data={
-                'samples':[{'sample': 'sample1'}, {'sample': 'sample2'}]
-            }
+                "samples": [{"sample": "sample1"}, {"sample": "sample2"}]
+            },
         )
 
         expected_live = [
             {
-            "project": "project-xxx",
-            "id": "file-aaa",
-            "describe": {
-                "archivalState": "live"
-            }
+                "project": "project-xxx",
+                "id": "file-aaa",
+                "describe": {"archivalState": "live"},
             },
             {
                 "project": "project-xxx",
                 "id": "file-bbb",
-                "describe": {
-                    "archivalState": "live"
-                }
-            }
+                "describe": {"archivalState": "live"},
+            },
         ]
 
         expected_unarchiving = [
             {
                 "project": "project-xxx",
                 "id": "file-ccc",
-                "describe": {
-                    "archivalState": "unarchiving"
-                }
+                "describe": {"archivalState": "unarchiving"},
             }
         ]
 
         expected_archived = [
             {
-            "project": "project-xxx",
+                "project": "project-xxx",
                 "id": "file-aaa",
-                "describe": {
-                    "archivalState": "archived"
-                }
+                "describe": {"archivalState": "archived"},
             },
             {
                 "project": "project-xxx",
                 "id": "file-aaa",
-                "describe": {
-                    "archivalState": "archived"
-                }
-            }
+                "describe": {"archivalState": "archived"},
+            },
         ]
 
         with self.subTest("live files wrongly identified"):
@@ -130,8 +110,7 @@ class TestCheckArchivalState(unittest.TestCase):
         with self.subTest("archived files wrongly identified"):
             assert archived == expected_archived
 
-
-    @patch('bin.utils.dx_manage.find_in_parallel')
+    @patch("bin.utils.dx_manage.find_in_parallel")
     def test_correct_number_files_searched_for(self, mock_find):
         """
         When searching in DNAnexus, there are a set number of patterns
@@ -142,10 +121,10 @@ class TestCheckArchivalState(unittest.TestCase):
         the correct list of patterns being built since we don't return them.
         """
         dx_manage.check_archival_state(
-            project='project-xxx',
+            project="project-xxx",
             sample_data={
-                'samples':[{'sample': 'sample1'}, {'sample': 'sample2'}]
-            }
+                "samples": [{"sample": "sample1"}, {"sample": "sample2"}]
+            },
         )
 
         # since we pass 2 samples, we expect 2 * 8 patterns plus the
@@ -154,105 +133,90 @@ class TestCheckArchivalState(unittest.TestCase):
 
         expected_stdout = "17 sample files to search for"
 
-        assert expected_stdout in stdout, (
-            "Wrong no. files identified to check archival state of"
-        )
+        assert (
+            expected_stdout in stdout
+        ), "Wrong no. files identified to check archival state of"
 
 
 class TestUnarchiveFiles(unittest.TestCase):
-    """
+    """ """
 
-    """
     pass
 
 
 class TestCreateFolder(unittest.TestCase):
-    """
+    """ """
 
-    """
     pass
 
 
 class TestFindInParallel(unittest.TestCase):
-    """
+    """ """
 
-    """
     pass
 
 
 class TestGetCnvCallJob(unittest.TestCase):
-    """
+    """ """
 
-    """
     pass
 
 
 class TestGetDependentFiles(unittest.TestCase):
-    """
+    """ """
 
-    """
     pass
 
 
 class TestGetJobStates(unittest.TestCase):
-    """
+    """ """
 
-    """
     pass
 
 
 class TestGetLaunchedWorkflowIds(unittest.TestCase):
-    """
+    """ """
 
-    """
     pass
 
 
 class TestGetProjects(unittest.TestCase):
-    """
+    """ """
 
-    """
     pass
 
 
 class TestGetXlsxReports(unittest.TestCase):
-    """
+    """ """
 
-    """
     pass
 
 
 class TestGetSingleDir(unittest.TestCase):
-    """
+    """ """
 
-    """
     pass
 
 
 class TestGetLatestDiasBatchApp(unittest.TestCase):
-    """
+    """ """
 
-    """
     pass
 
 
 class TestRunBatch(unittest.TestCase):
-    """
+    """ """
 
-    """
     pass
 
 
 class TestReadGenepanelsFile(unittest.TestCase):
-    """
+    """ """
 
-    """
     pass
 
 
-
 class TestUploadManifest(unittest.TestCase):
-    """
+    """ """
 
-    """
     pass
