@@ -289,9 +289,51 @@ class TestGetDependentFiles(unittest.TestCase):
 
 
 class TestGetJobStates(unittest.TestCase):
-    """ """
+    """
+    Tests for dx_manage.get_job_states
 
-    pass
+    Function calls dxpy.describe in parallel using utils.call_in_parallel
+    of a given list of job IDs and returns a mapping of the job ID to its state
+    """
+    @patch('bin.utils.dx_manage.call_in_parallel')
+    def test_correct_states_returned(self, mock_parallel):
+        """
+        Test that the correct format is returned
+        """
+        # minimal set of describe objects
+        mock_parallel.return_value = [
+            {
+                "id": "job-xxx",
+                "region": "aws:eu-central-1",
+                "executable": "eggd_foo_bar",
+                "state": "runnable"
+            },
+            {
+                "id": "job-yyy",
+                "region": "aws:eu-central-1",
+                "executable": "eggd_foo_bar",
+                "state": "running"
+            },
+            {
+                "id": "job-zzz",
+                "region": "aws:eu-central-1",
+                "executable": "eggd_foo_bar",
+                "state": "done"
+            }
+        ]
+
+        returned_states = dx_manage.get_job_states(
+            ["job-xxx", "job-yyy", "job-zzz"]
+        )
+
+        expected_states = {
+            "job-xxx": "runnable",
+            "job-yyy": "running",
+            "job-zzz": "done"
+        }
+
+        assert returned_states == expected_states, "job states incorrectly parsed"
+
 
 
 class TestGetLaunchedWorkflowIds(unittest.TestCase):
