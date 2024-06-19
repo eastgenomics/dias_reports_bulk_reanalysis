@@ -55,7 +55,7 @@ def check_archival_state(project, sample_data) -> Union[list, list, list]:
     files = [f"{x}.*{y}" for x in samples for y in sample_file_patterns]
     files.append(".*_excluded_intervals.bed")
 
-    print(f"{len(samples)} samples to search for")
+    print(f"{len(files)} sample files to search for")
 
     file_details = find_in_parallel(
         project=project,
