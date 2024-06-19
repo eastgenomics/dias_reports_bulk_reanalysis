@@ -112,7 +112,7 @@ def unarchive_files(project_files) -> None:
             # catch everything and exit on any error
             print(
                 "Error unarchving files for "
-                f"{project_files[0]['project']}: {error}"
+                f"{files[0]['project']}: {error}"
             )
             raise RuntimeError(f"Error unarchiving files: {error}")
 
