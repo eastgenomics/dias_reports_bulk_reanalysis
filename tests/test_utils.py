@@ -13,7 +13,7 @@ from tests import TEST_DATA_DIR
 
 class TestCallInParallel(unittest.TestCase):
     """
-    Tests for utils.call_in_paralllel
+    Tests for utils.call_in_parallel
 
     Function takes another function name and iterable as input, and calls
     the function for each item in parallel. This is primarily used for
