@@ -8,11 +8,7 @@ import pandas as pd
 import pytest
 
 from bin.utils import utils
-
-
-TEST_DATA_DIR = (
-    os.path.join(os.path.dirname(__file__), 'test_data')
-)
+from tests import TEST_DATA_DIR
 
 
 class TestCallInParallel(unittest.TestCase):
