@@ -173,11 +173,11 @@ def find_in_parallel(project, items, prefix='', suffix='') -> list:
     list
         list of all found dxpy object details
     """
-    def _find(project, search_term):
+    def _find(project, search_terms):
         """Query given patterns as a regex search term to find all files"""
         return list(dxpy.find_data_objects(
             project=project,
-            name=rf'{prefix}{"|".join(search_term)}{suffix}',
+            name="|".join([f"{prefix}{x}{suffix}" for x in search_terms]),
             name_mode='regexp',
             describe={
                 'fields': {
