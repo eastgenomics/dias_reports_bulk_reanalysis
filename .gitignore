@@ -5,3 +5,4 @@
 *.tsv
 *.xlsx
 .~lock.*
+.coverage
