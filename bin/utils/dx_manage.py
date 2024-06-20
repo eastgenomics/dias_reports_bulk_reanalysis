@@ -619,7 +619,7 @@ def read_genepanels_file(file_details) -> pd.DataFrame:
         columns=['indication', 'panel_name']
     )
     genepanels.drop_duplicates(keep='first', inplace=True)
-    genepanels.reset_index(inplace=True)
+    genepanels.reset_index(inplace=True, drop=True)
 
     return genepanels
 
