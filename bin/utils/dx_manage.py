@@ -534,31 +534,14 @@ def run_batch(
     return job.id
 
 
-def read_genepanels_file() -> pd.DataFrame:
+def get_latest_genepanels_file() -> dict:
     """
-    Read latest genepanels file into DataFrame from 001_Reference
-    project in DNAnexus.
-
-    Adapted from eggd_dias_batch.utils.parse_genepanels:
-    https://github.com/eastgenomics/eggd_dias_batch/blob/master/resources/home/dnanexus/dias_batch/utils/utils.py#L311
-
-    This will keep the unique rows from the first 2 columns (i.e. one
-    row per clinical indication / panel), and adds the test code as a
-    separate column.
-
-    Example resultant dataframe:
-
-    +-----------+-----------------------+---------------------------+
-    | test_code |      indication       |        panel_name         |
-    +-----------+-----------------------+---------------------------+
-    | C1.1      | C1.1_Inherited Stroke |  CUH_Inherited Stroke_1.0 |
-    | C2.1      | C2.1_INSR             |  CUH_INSR_1.0             |
-    +-----------+-----------------------+---------------------------+
+    Find the latest genepanels file from 001_Reference project in DNAnexus.
 
     Returns
     -------
-    pd.DataFrame
-        DataFrame of genepanels file
+    dict
+        file describe details of latest genepanels file
 
     Raises
     ------
@@ -591,9 +574,42 @@ def read_genepanels_file() -> pd.DataFrame:
 
     print(f"Latest genepanels file selected: {latest_file['describe']['name']}")
 
+    return latest_file
+
+
+def read_genepanels_file(file_details) -> pd.DataFrame:
+    """
+    Read genepanels file into DataFrame.
+
+    Adapted from eggd_dias_batch.utils.parse_genepanels:
+    https://github.com/eastgenomics/eggd_dias_batch/blob/master/resources/home/dnanexus/dias_batch/utils/utils.py#L311
+
+    This will keep the unique rows from the first 2 columns (i.e. one
+    row per clinical indication / panel), and adds the test code as a
+    separate column.
+
+    Example resultant dataframe:
+
+    +-----------+-----------------------+---------------------------+
+    | test_code |      indication       |        panel_name         |
+    +-----------+-----------------------+---------------------------+
+    | C1.1      | C1.1_Inherited Stroke |  CUH_Inherited Stroke_1.0 |
+    | C2.1      | C2.1_INSR             |  CUH_INSR_1.0             |
+    +-----------+-----------------------+---------------------------+
+
+    Parameters
+    ----------
+    file_details : dict
+        file describe details of latest genepanels file
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame of genepanels file
+    """
     contents = dxpy.DXFile(
-        project=latest_file['project'],
-        dxid=latest_file['id']
+        project=file_details['project'],
+        dxid=file_details['id']
     ).read().rstrip('\n').split('\n')
 
     # genepanels file may have 3 or 4 columns as it can also contain HGNC
