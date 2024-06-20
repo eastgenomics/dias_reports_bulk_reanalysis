@@ -1,4 +1,5 @@
 """Tests for dx_manage"""
+from random import shuffle
 import unittest
 from unittest.mock import patch
 
@@ -330,10 +331,100 @@ class TestRunBatch(unittest.TestCase):
     pass
 
 
-class TestReadGenepanelsFile(unittest.TestCase):
-    """ """
+@patch('bin.utils.dx_manage.dxpy.find_data_objects')
+class TestGetLatestGenepanelsFile(unittest.TestCase):
+    """
+    Tests for dx_manage.read_genepanels_file
 
-    pass
+    Function searches for genepanels files in 001_Reference/dynamic_files/
+    gene_panels/, finds the latest and returns the clinical indication
+    and panel name columns as a DataFrame
+    """
+
+    def test_runtime_error_raised_on_finding_no_files(self, mock_find):
+        """
+        Test that a RuntimeError is correctly raised if no files are
+        found in the specified folder
+        """
+        mock_find.return_value = []
+
+        expected_error = (
+            "No genepanels files found in project-Fkb6Gkj433GVVvj73J7x8KbV/"
+            "dynamic_files/gene_panels/"
+        )
+
+        with pytest.raises(RuntimeError, match=expected_error):
+            dx_manage.get_latest_genepanels_file()
+
+
+
+    def test_latest_file_selected(self, mock_find):
+        """
+        Test that the latest file is selected based off the created date
+        key in the describe details for each DXFile object
+        """
+        # file details as returned from dxpy.find_data_objects
+        file_details = [
+            {
+                "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+                "describe": {
+                    "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+                    "name": "240610_genepanels.tsv",
+                    "created": 1718719358000,
+                },
+            },
+            {
+                "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                "id": "file-Gj7ygzj42X4ZBqg9068p1fQ4",
+                "describe": {
+                    "id": "file-Gj7ygzj42X4ZBqg9068p1fQ4",
+                    "name": "240405_genepanels.tsv",
+                    "created": 1712319487000,
+                },
+            },
+            {
+                "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                "id": "file-Gj771Q8433GQQZz0gp966kG5",
+                "describe": {
+                    "id": "file-Gj771Q8433GQQZz0gp966kG5",
+                    "name": "240402_genepanels.tsv",
+                    "created": 1712222401000,
+                },
+            },
+            {
+                "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                "id": "file-GgBG75Q433Gk4pY5qpxbgVyz",
+                "describe": {
+                    "id": "file-GgBG75Q433Gk4pY5qpxbgVyz",
+                    "name": "240213_genepanels.tsv",
+                    "created": 1708442518000,
+                },
+            },
+        ]
+
+        # shuffle to ensure we don't get it right just from indexing
+        shuffle(file_details)
+
+        mock_find.return_value = file_details
+
+        correct_file = {
+            "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+            "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+            "describe": {
+                "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+                "name": "240610_genepanels.tsv",
+                "created": 1718719358000,
+            },
+        }
+
+        selected_file = dx_manage.get_latest_genepanels_file()
+
+        assert selected_file == correct_file, (
+            'incorrect genepanels file selected'
+        )
+
+
 
 
 class TestUploadManifest(unittest.TestCase):
