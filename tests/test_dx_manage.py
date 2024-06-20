@@ -320,8 +320,8 @@ class TestGetXlsxReports(unittest.TestCase):
     @patch('bin.utils.dx_manage.find_in_parallel')
     def test_all_projects_searched(self, mock_parallel):
         """
-        Test that for the given list of n projects, we call
-        find_in_paralle in times
+        Test that for the given list of `n` projects, we call
+        find_in_parallel `n` times
         """
         dx_manage.get_xlsx_reports(
             all_samples=self.samples,
