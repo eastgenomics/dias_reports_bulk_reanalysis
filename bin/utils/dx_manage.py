@@ -376,8 +376,8 @@ def get_xlsx_reports(all_samples, projects) -> list:
         project_reports = find_in_parallel(
             project=project,
             items=all_samples,
-            prefix='.*(',
-            suffix=').*xlsx'
+            prefix='.*',
+            suffix='.*xlsx'
         )
         all_reports.extend(project_reports)
 
