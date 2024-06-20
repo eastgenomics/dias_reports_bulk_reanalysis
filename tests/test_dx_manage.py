@@ -307,9 +307,117 @@ class TestGetProjects(unittest.TestCase):
 
 
 class TestGetXlsxReports(unittest.TestCase):
-    """ """
+    """
+    Tests for dx_manage.get_xlsx_reports
 
-    pass
+    Function searches through a list of projects for a list of sample
+    names to find all xlsx reports and returns a single list of all
+    describe objects for each
+    """
+    projects = ['project_1', 'project_2', 'project_3']
+    samples = ['sample_1', 'sample_2', 'sample_3']
+
+    @patch('bin.utils.dx_manage.find_in_parallel')
+    def test_all_projects_searched(self, mock_parallel):
+        """
+        Test that for the given list of n projects, we call
+        find_in_paralle in times
+        """
+        dx_manage.get_xlsx_reports(
+            all_samples=self.samples,
+            projects=self.projects
+        )
+
+        assert mock_parallel.call_count == 3, "not called for all projects"
+
+    #TODO - come back to this after tests for find_in_parallel fixed
+    # @patch('bin.utils.dx_manage.dxpy.find_data_objects')
+    # def test_correct_search_pattern_generated(self, mock_find):
+    #     """
+    #     Test that the search pattern built in dx_manage.find_in_parallel
+    #     that is provided to dxpy.find_data_objects is as expected
+    #     """
+    #     dx_manage.get_xlsx_reports(
+    #         all_samples=self.samples,
+    #         projects=self.projects
+    #     )
+
+    #     # mocked function args are stored as 2nd item in tuple
+    #     print(mock_find.call_args[1]['name'])
+
+    #     exit(1)
+
+    @patch('bin.utils.dx_manage.find_in_parallel')
+    def test_non_sample_xlsx_correctly_filtered_out(self, mock_parallel):
+        """
+        Test that when a non sample xlsx is returned (i.e. run level
+        eggd_artemis file), that these are filtered out
+        """
+        # mock returning one sample from each report plus additional
+        # run file that should be filtered
+        mock_parallel.side_effect = [
+            [
+                {
+                    "id": "file-aaa",
+                    "describe": {
+                        "name": "sample1.xlsx"
+                    }
+                }
+            ],
+            [
+                {
+                    "id": "file-bbb",
+                    "describe": {
+                        "name": "sample2.xlsx"
+                    }
+                }
+            ],
+            [
+                {
+                    "id": "file-ccc",
+                    "describe": {
+                        "name": "sample3.xlsx"
+                    }
+                },
+                {
+                    "id": "file-ddd",
+                    "describe": {
+                        "name": "240229_A01295_0328_BHYG25DRX3_240620.xlsx"
+                    }
+                }
+            ]
+        ]
+
+        returned_reports = dx_manage.get_xlsx_reports(
+            all_samples=self.samples,
+            projects=self.projects
+        )
+
+        expected_reports = [
+            {
+                "id": "file-aaa",
+                "describe": {
+                    "name": "sample1.xlsx"
+                }
+            },
+            {
+                "id": "file-bbb",
+                "describe": {
+                    "name": "sample2.xlsx"
+                }
+            },
+            {
+                "id": "file-ccc",
+                "describe": {
+                    "name": "sample3.xlsx"
+                }
+            }
+
+        ]
+
+        assert returned_reports == expected_reports, (
+            "run level report not correctly filtered out"
+        )
 
 
 class TestGetSingleDir(unittest.TestCase):
