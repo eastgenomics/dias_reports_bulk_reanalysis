@@ -1,10 +1,15 @@
 """Tests for dx_manage"""
+import os
+from uuid import uuid4
 import unittest
 from unittest.mock import patch
 
+import dxpy
 import pytest
 
 from bin.utils import dx_manage
+
+from tests import TEST_DATA_DIR
 
 
 class TestCheckArchivalState(unittest.TestCase):
@@ -336,7 +341,51 @@ class TestReadGenepanelsFile(unittest.TestCase):
     pass
 
 
+@patch('bin.utils.dx_manage.dxpy.upload_local_file')
 class TestUploadManifest(unittest.TestCase):
-    """ """
+    """
+    Tests for dx_manage.upload_manifest
 
-    pass
+    Function calls dxpy.upload_local_file to perform the upload, deletes
+    the local file and then returns the uploaded file ID
+    """
+
+    def test_local_file_removed(self, mock_upload):
+        """
+        Test that the local file is removed after calling upload
+        """
+        # generate random file
+        test_file = os.path.join(TEST_DATA_DIR, uuid4().hex)
+
+        open(test_file, 'w').close()
+
+        dx_manage.upload_manifest(
+            manifest=test_file,
+            path='/'
+        )
+
+        assert not os.path.exists(test_file), 'local file not deleted'
+
+
+    @patch('bin.utils.dx_manage.os.remove')
+    def test_id_returned_from_dxfile_object(self, mock_remove, mock_upload):
+        """
+        Test that the uploaded file ID is correctly returned from the
+        DXFile object
+        """
+        # example DXFile object response from uploading file, dxid required
+        # to be a random 24 character alphanumeric string to setup object
+        mock_upload.return_value = dxpy.bindings.dxfile.DXFile(
+            dxid='file-GgQP6X84bjX3J53Vv1Yxyz7b'
+        )
+
+        file_id = dx_manage.upload_manifest(
+            manifest='',
+            path='/'
+        )
+
+        assert file_id == 'file-GgQP6X84bjX3J53Vv1Yxyz7b', (
+            "uploaded file ID incorrect"
+        )
+
+
