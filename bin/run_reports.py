@@ -26,6 +26,7 @@ from utils.dx_manage import (
     get_latest_dias_batch_app,
     run_batch,
     upload_manifest,
+    get_latest_genepanels_file,
     read_genepanels_file
 )
 
@@ -123,7 +124,8 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
         )
 
     # check all test codes from Clarity valid against latest genepanels
-    genepanels = read_genepanels_file()
+    latest_genepanels = get_latest_genepanels_file()
+    genepanels = read_genepanels_file(file_details=latest_genepanels)
     validate_test_codes(
         all_sample_data=samples,
         genepanels=genepanels
