@@ -631,4 +631,4 @@ def upload_manifest(manifest, path) -> str:
     # clean up our generated local file
     os.remove(manifest)
 
-    return remote_file._dxid
+    return remote_file.get_id()
