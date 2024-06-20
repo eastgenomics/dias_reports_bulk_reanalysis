@@ -1,4 +1,5 @@
 """Tests for dx_manage"""
+import os
 from random import shuffle
 import unittest
 from unittest.mock import patch
@@ -7,6 +8,7 @@ import pytest
 
 from bin.utils import dx_manage
 
+from tests import TEST_DATA_DIR
 
 class TestCheckArchivalState(unittest.TestCase):
     """
@@ -337,8 +339,7 @@ class TestGetLatestGenepanelsFile(unittest.TestCase):
     Tests for dx_manage.read_genepanels_file
 
     Function searches for genepanels files in 001_Reference/dynamic_files/
-    gene_panels/, finds the latest and returns the clinical indication
-    and panel name columns as a DataFrame
+    gene_panels/ and returns the details of the latest
     """
 
     def test_runtime_error_raised_on_finding_no_files(self, mock_find):
@@ -425,6 +426,67 @@ class TestGetLatestGenepanelsFile(unittest.TestCase):
         )
 
 
+@patch('bin.utils.dx_manage.dxpy.DXFile')
+class TestReadGenepanelsFile(unittest.TestCase):
+    """
+    Tests for dx_manage.read_genepanels_file
+
+    Function takes in file details returned from
+    dx_manage.read_latest_genepanels_file and returns the clinical
+    indication and panel name columns as a DataFrame
+    """
+    # read the contents of the example genepanels we have stored in the
+    # test data dir to patch in reading from DNAnexus, call read() to
+    # return contents as a string like is done in DXFile.read()
+    with open(os.path.join(TEST_DATA_DIR, 'genepanels.tsv')) as fh:
+        contents = fh.read()
+
+    def test_contents_correctly_parsed(self, mock_file):
+        """
+        Test that the contents are correctly parsed
+        """
+        mock_file.return_value.read.return_value = self.contents
+
+        parsed_genepanels = dx_manage.read_genepanels_file(
+            file_details={
+                "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+                "describe": {
+                    "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+                    "name": "240610_genepanels.tsv",
+                    "created": 1718719358000,
+                }
+            }
+        )
+
+        # test some features of the returned dataframe, we expect 2
+        # columns `indication` and `panel_name` with 348 rows
+        with self.subTest('correct number of rows'):
+            assert len(parsed_genepanels.index) == 348
+
+        with self.subTest('correct column names'):
+            assert parsed_genepanels.columns.tolist() == [
+                'indication', 'panel_name'
+            ]
+
+        with self.subTest('correct first row'):
+            correct_row = ['C1.1_Inherited Stroke', 'CUH_Inherited Stroke_1.0']
+
+            assert parsed_genepanels.iloc[0].tolist() == correct_row
+
+        with self.subTest('correct last row'):
+            correct_row = [
+                'R99.1_Common craniosynostosis syndromes_P',
+                'Common craniosynostosis syndromes_1.2'
+            ]
+
+            assert parsed_genepanels.iloc[-1].tolist() == correct_row
+
+        with self.subTest('total unique indications'):
+            assert len(parsed_genepanels['indication'].unique().tolist()) == 280
+
+        with self.subTest('total unique panel names'):
+            assert len(parsed_genepanels['panel_name'].unique().tolist()) == 318
 
 
 class TestUploadManifest(unittest.TestCase):
