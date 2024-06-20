@@ -18,4 +18,5 @@ jobs:
         pipenv install --dev
     - name: Test with pytest
       run: |
-        python -m pytest -v --cov --count 10 --random-order bin/
+        pwd
+        python -m pytest -v --cov --count 10 --random-order dias_reports_bulk_reanalysis/bin/
