@@ -616,8 +616,8 @@ def upload_manifest(manifest, path) -> str:
     ----------
     manifest : str
         filename of manifest to upload
-    now : str
-        current datetime for folder naming
+    path : str
+        remote path to upload file to
 
     Returns
     -------
@@ -631,4 +631,4 @@ def upload_manifest(manifest, path) -> str:
     # clean up our generated local file
     os.remove(manifest)
 
-    return remote_file.id
+    return remote_file._dxid
