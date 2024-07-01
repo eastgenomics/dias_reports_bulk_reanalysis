@@ -7,9 +7,9 @@ from datetime import datetime
 import json
 from os import path
 import re
+from typing import Union
 
 import pandas as pd
-from typing import Union
 
 
 def call_in_parallel(func, items) -> list:
@@ -411,10 +411,26 @@ def parse_sample_identifiers(reports) -> list:
     -------
     list
         list of dicts with required sample details
+
+    Raises
+    ------
+    RuntimeError
+        Raised if any report names are invalid
     """
-    # TODO - consider here if a report is not named correctly it could
-    # introduce some messiness, do we just throw it out, raise a warning
-    # or raise an error?
+    # basic sense check that we don't have anything named like X12345.xlsx
+    # that won't pass the below parsing
+    invalid = [
+        x['describe']['name'] for x in reports if not
+        re.match(r'[\w]+-[\w\-]+_[\w\-\.]+\.xlsx', x['describe']['name'])
+    ]
+
+    if invalid:
+        raise RuntimeError(
+            "ERROR: xlsx reports found that specimen and instrument "
+            f"IDs could not be parsed from: {', '.join(invalid)}"
+        )
+
+
     samples = [
         {
             'project': x['project'],
@@ -426,6 +442,9 @@ def parse_sample_identifiers(reports) -> list:
 
     # ensure we don't have duplicates from multiple reports jobs
     samples = [dict(s) for s in set(frozenset(d.items()) for d in samples)]
+
+    # sort in some order for consistency of returning and testing
+    samples = sorted(samples, key=lambda d: d['sample'])
 
     return samples
 

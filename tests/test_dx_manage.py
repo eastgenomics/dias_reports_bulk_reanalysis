@@ -1,6 +1,9 @@
 """Tests for dx_manage"""
+import concurrent
 import os
 from uuid import uuid4
+from random import shuffle
+
 import unittest
 from unittest.mock import patch
 
@@ -10,7 +13,6 @@ import pytest
 from bin.utils import dx_manage
 
 from tests import TEST_DATA_DIR
-
 
 class TestCheckArchivalState(unittest.TestCase):
     """
@@ -275,10 +277,126 @@ class TestCreateFolder(unittest.TestCase):
     pass
 
 
+@patch('bin.utils.dx_manage.dxpy.find_data_objects')
+@patch(
+    'bin.utils.dx_manage.concurrent.futures.ThreadPoolExecutor.submit',
+    wraps=concurrent.futures.ThreadPoolExecutor().submit
+)
 class TestFindInParallel(unittest.TestCase):
-    """ """
+    """
+    Tests for dx_manage.find_in_parallel
 
-    pass
+    Function takes a project and list of search terms for which to
+    search for data objects. Searching is done with a ThreadPool of
+    32 concurrent threads for speedy searching.
+    """
+
+    def test_items_correctly_chunked(self, mock_submit, mock_find):
+        """
+        Test that when a large number of items are passed in that these
+        are correctly chunked into lists of 100 items. This is done
+        to generate a regex pattern of up to 100 patterns for a single
+        call of dxpy.find_data_objects to reduce the total API calls
+        in favour of more 'expensive' calls (i.e. more API server load
+        per call).
+
+        To test this, we will generate a list of items of 350 and use
+        the number of calls to ThreadPoolExecutor.submit() as a proxy
+        to know we have correctly chunked this to 4 lists.
+        """
+        dx_manage.find_in_parallel(
+            project='project-xxx',
+            items=[f"sample_{x}" for x in range(350)]
+        )
+
+        assert mock_submit.call_count == 4, (
+            'items not correctly chunked for concurrent searching'
+        )
+
+    def test_results_correctly_returned_as_single_list(self, mock_submit, mock_find):
+        """
+        Test that when we call the find in parallel that we correctly
+        just return a single list of items returned from the find.
+
+        Lazily just return the same for all _find calls and check length
+        """
+        mock_find.return_value = ['foo', 'bar', 'baz']
+
+        output = dx_manage.find_in_parallel(
+            project='project-xxx',
+            items=[f"sample_{x}" for x in range(350)]
+        )
+
+        # we have 4 concurrent threads => 4 calls, each has a return of
+        # length 3 items => expect a single list of 12 items
+        with self.subTest("correct length"):
+            assert len(output) == 12
+
+        with self.subTest("correct types"):
+            # test for correctly flattened to single list
+            assert all([type(x) == str for x in output])
+
+
+    def test_exceptions_caught_and_raised(self, mock_submit, mock_find):
+        """
+        Test that if one of the searches raises an Exception that this
+        is caught and raised
+        """
+        # raise error one out of 4 of the _find calls
+        mock_find.side_effect = [
+            ['foo'],
+            ['bar'],
+            dxpy.exceptions.DXError,  # generic dxpy error
+            ['baz']
+        ]
+
+        with pytest.raises(dxpy.exceptions.DXError):
+            dx_manage.find_in_parallel(
+                project='project-xxx',
+                items=[f"sample_{x}" for x in range(350)]
+            )
+
+
+    def test_find_input_args(self, mock_submit, mock_find):
+        """
+        Test that the input arg for the search term to
+        dxpy.find_data_objects is as expected with no prefix or suffix
+        """
+        dx_manage.find_in_parallel(
+            project='project-xxx',
+            items=[f"sample_{x}" for x in range(5)],
+
+        )
+
+        expected_pattern = "sample_0|sample_1|sample_2|sample_3|sample_4"
+
+        # mocked function args are stored as 2nd item in tuple
+        name_arg = mock_find.call_args[1]['name']
+
+        assert name_arg == expected_pattern, "search pattern incorrect"
+
+
+    def test_find_input_args_with_prefix_suffix(self, mock_submit, mock_find):
+        """
+        Test that the input arg for the search term to
+        dxpy.find_data_objects is as expected with prefix and suffix
+        """
+        dx_manage.find_in_parallel(
+            project='project-xxx',
+            items=[f"sample_{x}" for x in range(5)],
+            prefix="foo_",
+            suffix=".bar"
+        )
+
+        expected_pattern = (
+            "foo_sample_0.bar|foo_sample_1.bar|foo_sample_2.bar|"
+            "foo_sample_3.bar|foo_sample_4.bar"
+        )
+
+        # mocked function args are stored as 2nd item in tuple
+        name_arg = mock_find.call_args[1]['name']
+
+        assert name_arg == expected_pattern, "search pattern incorrect"
 
 
 class TestGetCnvCallJob(unittest.TestCase):
@@ -335,10 +453,160 @@ class TestRunBatch(unittest.TestCase):
     pass
 
 
-class TestReadGenepanelsFile(unittest.TestCase):
-    """ """
+@patch('bin.utils.dx_manage.dxpy.find_data_objects')
+class TestGetLatestGenepanelsFile(unittest.TestCase):
+    """
+    Tests for dx_manage.read_genepanels_file
 
-    pass
+    Function searches for genepanels files in 001_Reference/dynamic_files/
+    gene_panels/ and returns the details of the latest
+    """
+
+    def test_runtime_error_raised_on_finding_no_files(self, mock_find):
+        """
+        Test that a RuntimeError is correctly raised if no files are
+        found in the specified folder
+        """
+        mock_find.return_value = []
+
+        expected_error = (
+            "No genepanels files found in project-Fkb6Gkj433GVVvj73J7x8KbV/"
+            "dynamic_files/gene_panels/"
+        )
+
+        with pytest.raises(RuntimeError, match=expected_error):
+            dx_manage.get_latest_genepanels_file()
+
+
+
+    def test_latest_file_selected(self, mock_find):
+        """
+        Test that the latest file is selected based off the created date
+        key in the describe details for each DXFile object
+        """
+        # file details as returned from dxpy.find_data_objects
+        file_details = [
+            {
+                "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+                "describe": {
+                    "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+                    "name": "240610_genepanels.tsv",
+                    "created": 1718719358000,
+                },
+            },
+            {
+                "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                "id": "file-Gj7ygzj42X4ZBqg9068p1fQ4",
+                "describe": {
+                    "id": "file-Gj7ygzj42X4ZBqg9068p1fQ4",
+                    "name": "240405_genepanels.tsv",
+                    "created": 1712319487000,
+                },
+            },
+            {
+                "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                "id": "file-Gj771Q8433GQQZz0gp966kG5",
+                "describe": {
+                    "id": "file-Gj771Q8433GQQZz0gp966kG5",
+                    "name": "240402_genepanels.tsv",
+                    "created": 1712222401000,
+                },
+            },
+            {
+                "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                "id": "file-GgBG75Q433Gk4pY5qpxbgVyz",
+                "describe": {
+                    "id": "file-GgBG75Q433Gk4pY5qpxbgVyz",
+                    "name": "240213_genepanels.tsv",
+                    "created": 1708442518000,
+                },
+            },
+        ]
+
+        # shuffle to ensure we don't get it right just from indexing
+        shuffle(file_details)
+
+        mock_find.return_value = file_details
+
+        correct_file = {
+            "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+            "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+            "describe": {
+                "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+                "name": "240610_genepanels.tsv",
+                "created": 1718719358000,
+            },
+        }
+
+        selected_file = dx_manage.get_latest_genepanels_file()
+
+        assert selected_file == correct_file, (
+            'incorrect genepanels file selected'
+        )
+
+
+@patch('bin.utils.dx_manage.dxpy.DXFile')
+class TestReadGenepanelsFile(unittest.TestCase):
+    """
+    Tests for dx_manage.read_genepanels_file
+
+    Function takes in file details returned from
+    dx_manage.read_latest_genepanels_file and returns the clinical
+    indication and panel name columns as a DataFrame
+    """
+    # read the contents of the example genepanels we have stored in the
+    # test data dir to patch in reading from DNAnexus, call read() to
+    # return contents as a string like is done in DXFile.read()
+    with open(os.path.join(TEST_DATA_DIR, 'genepanels.tsv')) as fh:
+        contents = fh.read()
+
+    def test_contents_correctly_parsed(self, mock_file):
+        """
+        Test that the contents are correctly parsed
+        """
+        mock_file.return_value.read.return_value = self.contents
+
+        parsed_genepanels = dx_manage.read_genepanels_file(
+            file_details={
+                "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+                "describe": {
+                    "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+                    "name": "240610_genepanels.tsv",
+                    "created": 1718719358000,
+                }
+            }
+        )
+
+        # test some features of the returned dataframe, we expect 2
+        # columns `indication` and `panel_name` with 348 rows
+        with self.subTest('correct number of rows'):
+            assert len(parsed_genepanels.index) == 348
+
+        with self.subTest('correct column names'):
+            assert parsed_genepanels.columns.tolist() == [
+                'indication', 'panel_name'
+            ]
+
+        with self.subTest('correct first row'):
+            correct_row = ['C1.1_Inherited Stroke', 'CUH_Inherited Stroke_1.0']
+
+            assert parsed_genepanels.iloc[0].tolist() == correct_row
+
+        with self.subTest('correct last row'):
+            correct_row = [
+                'R99.1_Common craniosynostosis syndromes_P',
+                'Common craniosynostosis syndromes_1.2'
+            ]
+
+            assert parsed_genepanels.iloc[-1].tolist() == correct_row
+
+        with self.subTest('total unique indications'):
+            assert len(parsed_genepanels['indication'].unique().tolist()) == 280
+
+        with self.subTest('total unique panel names'):
+            assert len(parsed_genepanels['panel_name'].unique().tolist()) == 318
 
 
 @patch('bin.utils.dx_manage.dxpy.upload_local_file')
