@@ -400,9 +400,57 @@ class TestFindInParallel(unittest.TestCase):
 
 
 class TestGetCnvCallJob(unittest.TestCase):
-    """ """
+    """
+    Tests for dx_manage.get_cnv_call_job
 
-    pass
+    Function returns the job ID of a CNV call job if specified in the
+    pre-selected jobs dict (i.e. in projects where multiple CNV call)
+    jobs have been run, else searches the executions in the project
+    and returns all job IDs found
+    """
+    def test_selected_job_returned(self):
+        """
+        Test that where a job ID for a project has been selected that
+        this is returned
+        """
+        cnv_jobs = dx_manage.get_cnv_call_job(
+            project='project-xxx',
+            selected_jobs={
+                'project-xxx': 'job-xxx',
+                'project-yyy': 'job-yyy'
+            }
+        )
+
+        assert cnv_jobs == ['job-xxx'], 'wrong CNV job returned'
+
+    @patch('bin.utils.dx_manage.dxpy.find_jobs')
+    def test_job_ids_returned_from_searching(self, mock_find):
+        """
+        Test that where jobs are searched for that just the IDs are
+        correctly returned
+        """
+        # return of dxpy.find_jobs as called in get_cnv_call_job()
+        mock_find.return_value = [
+            {
+                "id": "job-aaa"
+            },
+            {
+                "id": "job-bbb"
+            }
+        ]
+
+        # search where the project ID is not in our selected
+        cnv_jobs = dx_manage.get_cnv_call_job(
+            project='project-zzz',
+            selected_jobs={
+                'project-xxx': 'job-xxx',
+                'project-yyy': 'job-yyy'
+            }
+        )
+
+        assert sorted(cnv_jobs) == ['job-aaa', 'job-bbb'], (
+            'incorrect job IDs returned'
+        )
 
 
 class TestGetDependentFiles(unittest.TestCase):
