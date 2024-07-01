@@ -1,5 +1,7 @@
 """Tests for dx_manage"""
 import concurrent
+import os
+from random import shuffle
 import unittest
 from unittest.mock import patch
 
@@ -8,6 +10,7 @@ import pytest
 
 from bin.utils import dx_manage
 
+from tests import TEST_DATA_DIR
 
 class TestCheckArchivalState(unittest.TestCase):
     """
@@ -448,10 +451,160 @@ class TestRunBatch(unittest.TestCase):
     pass
 
 
-class TestReadGenepanelsFile(unittest.TestCase):
-    """ """
+@patch('bin.utils.dx_manage.dxpy.find_data_objects')
+class TestGetLatestGenepanelsFile(unittest.TestCase):
+    """
+    Tests for dx_manage.read_genepanels_file
 
-    pass
+    Function searches for genepanels files in 001_Reference/dynamic_files/
+    gene_panels/ and returns the details of the latest
+    """
+
+    def test_runtime_error_raised_on_finding_no_files(self, mock_find):
+        """
+        Test that a RuntimeError is correctly raised if no files are
+        found in the specified folder
+        """
+        mock_find.return_value = []
+
+        expected_error = (
+            "No genepanels files found in project-Fkb6Gkj433GVVvj73J7x8KbV/"
+            "dynamic_files/gene_panels/"
+        )
+
+        with pytest.raises(RuntimeError, match=expected_error):
+            dx_manage.get_latest_genepanels_file()
+
+
+
+    def test_latest_file_selected(self, mock_find):
+        """
+        Test that the latest file is selected based off the created date
+        key in the describe details for each DXFile object
+        """
+        # file details as returned from dxpy.find_data_objects
+        file_details = [
+            {
+                "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+                "describe": {
+                    "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+                    "name": "240610_genepanels.tsv",
+                    "created": 1718719358000,
+                },
+            },
+            {
+                "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                "id": "file-Gj7ygzj42X4ZBqg9068p1fQ4",
+                "describe": {
+                    "id": "file-Gj7ygzj42X4ZBqg9068p1fQ4",
+                    "name": "240405_genepanels.tsv",
+                    "created": 1712319487000,
+                },
+            },
+            {
+                "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                "id": "file-Gj771Q8433GQQZz0gp966kG5",
+                "describe": {
+                    "id": "file-Gj771Q8433GQQZz0gp966kG5",
+                    "name": "240402_genepanels.tsv",
+                    "created": 1712222401000,
+                },
+            },
+            {
+                "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                "id": "file-GgBG75Q433Gk4pY5qpxbgVyz",
+                "describe": {
+                    "id": "file-GgBG75Q433Gk4pY5qpxbgVyz",
+                    "name": "240213_genepanels.tsv",
+                    "created": 1708442518000,
+                },
+            },
+        ]
+
+        # shuffle to ensure we don't get it right just from indexing
+        shuffle(file_details)
+
+        mock_find.return_value = file_details
+
+        correct_file = {
+            "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+            "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+            "describe": {
+                "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+                "name": "240610_genepanels.tsv",
+                "created": 1718719358000,
+            },
+        }
+
+        selected_file = dx_manage.get_latest_genepanels_file()
+
+        assert selected_file == correct_file, (
+            'incorrect genepanels file selected'
+        )
+
+
+@patch('bin.utils.dx_manage.dxpy.DXFile')
+class TestReadGenepanelsFile(unittest.TestCase):
+    """
+    Tests for dx_manage.read_genepanels_file
+
+    Function takes in file details returned from
+    dx_manage.read_latest_genepanels_file and returns the clinical
+    indication and panel name columns as a DataFrame
+    """
+    # read the contents of the example genepanels we have stored in the
+    # test data dir to patch in reading from DNAnexus, call read() to
+    # return contents as a string like is done in DXFile.read()
+    with open(os.path.join(TEST_DATA_DIR, 'genepanels.tsv')) as fh:
+        contents = fh.read()
+
+    def test_contents_correctly_parsed(self, mock_file):
+        """
+        Test that the contents are correctly parsed
+        """
+        mock_file.return_value.read.return_value = self.contents
+
+        parsed_genepanels = dx_manage.read_genepanels_file(
+            file_details={
+                "project": "project-Fkb6Gkj433GVVvj73J7x8KbV",
+                "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+                "describe": {
+                    "id": "file-Gkjk6zQ433GyXvqbYGpFBFgx",
+                    "name": "240610_genepanels.tsv",
+                    "created": 1718719358000,
+                }
+            }
+        )
+
+        # test some features of the returned dataframe, we expect 2
+        # columns `indication` and `panel_name` with 348 rows
+        with self.subTest('correct number of rows'):
+            assert len(parsed_genepanels.index) == 348
+
+        with self.subTest('correct column names'):
+            assert parsed_genepanels.columns.tolist() == [
+                'indication', 'panel_name'
+            ]
+
+        with self.subTest('correct first row'):
+            correct_row = ['C1.1_Inherited Stroke', 'CUH_Inherited Stroke_1.0']
+
+            assert parsed_genepanels.iloc[0].tolist() == correct_row
+
+        with self.subTest('correct last row'):
+            correct_row = [
+                'R99.1_Common craniosynostosis syndromes_P',
+                'Common craniosynostosis syndromes_1.2'
+            ]
+
+            assert parsed_genepanels.iloc[-1].tolist() == correct_row
+
+        with self.subTest('total unique indications'):
+            assert len(parsed_genepanels['indication'].unique().tolist()) == 280
+
+        with self.subTest('total unique panel names'):
+            assert len(parsed_genepanels['panel_name'].unique().tolist()) == 318
 
 
 class TestUploadManifest(unittest.TestCase):
