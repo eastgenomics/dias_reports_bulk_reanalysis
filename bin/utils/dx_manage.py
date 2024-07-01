@@ -460,12 +460,13 @@ def get_latest_dias_batch_app() -> str:
     app = list(dxpy.bindings.search.find_apps(
         name='eggd_dias_batch',
         name_mode='exact',
+        all_versions=False,
         published=True
     ))
 
     assert app, "No app found for eggd_dias_batch"
 
-    return app[0][id]
+    return app[0]['id']
 
 
 def run_batch(

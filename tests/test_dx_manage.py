@@ -441,10 +441,52 @@ class TestGetSingleDir(unittest.TestCase):
     pass
 
 
+@patch('bin.utils.dx_manage.dxpy.bindings.search.find_apps')
 class TestGetLatestDiasBatchApp(unittest.TestCase):
-    """ """
+    """
+    Tests for dx_manage.get_latest_dias_batch_app
 
-    pass
+    Function searches for published eggd_dias_batch apps to ensure we
+    always run with the latest version
+    """
+
+    def test_no_app_found_raises_assertion_error(self, mock_find):
+        """
+        Test when no eggd_dias_batch app found that we raise an
+        AssertionError
+        """
+        mock_find.return_value = []
+
+        with pytest.raises(
+            AssertionError,
+            match='No app found for eggd_dias_batch'
+        ):
+            dx_manage.get_latest_dias_batch_app()
+
+
+    def test_latest_app_returned(self, mock_find):
+        """
+        Test where we find multiple published versions of the app that
+        we correctly select the latest
+
+        With `all_versions=False` it will return just the app tagged with
+        default (i.e. the latest), therefore we are just testing that we
+        correctly return the app ID from the response list
+
+        Relevant dxpy docs: http://autodoc.dnanexus.com/bindings/python/current/dxpy_search.html#dxpy.bindings.search.find_global_executables
+        """
+        mock_find.return_value = [
+            {
+                'id': 'app-GfG4Bf84QQg40v7Y6zKF34KP'
+            }
+        ]
+
+        app_id = dx_manage.get_latest_dias_batch_app()
+
+        assert app_id == 'app-GfG4Bf84QQg40v7Y6zKF34KP', (
+            'latest app ID incorrectly returned'
+        )
+
 
 
 class TestRunBatch(unittest.TestCase):
