@@ -424,9 +424,54 @@ class TestGetLaunchedWorkflowIds(unittest.TestCase):
 
 
 class TestGetProjects(unittest.TestCase):
-    """ """
+    """
+    Tests for dx_manage.get_projects
 
-    pass
+    Function searches for a list of projects for given assay and returns
+    a dictionary of project ID: describe data
+    """
+
+    @patch('bin.utils.dx_manage.dxpy.bindings.search.find_projects')
+    def test_projects_correctly_returned(self, mock_find):
+        """
+        Test the return format is correct when searching for projects
+        """
+        # minimal return from dxpy.bindings.search.find_projects
+        mock_find.return_value = [
+            {
+                "id": "project-xxx",
+                "level": "CONTRIBUTE",
+                "describe": {
+                    "name": "002_run1_CEN"
+                }
+            },
+            {
+                "id": "project-yyy",
+                "level": "CONTRIBUTE",
+                "describe": {
+                    "name": "002_run2_CEN"
+                }
+            },
+            {
+                "id": "project-zzz",
+                "level": "CONTRIBUTE",
+                "describe": {
+                    "name": "002_run3_CEN"
+                }
+            }
+        ]
+
+        returned_projects = dx_manage.get_projects("CEN")
+
+        expected_projects = {
+            "project-xxx": {"name": "002_run1_CEN"},
+            "project-yyy": {"name": "002_run2_CEN"},
+            "project-zzz": {"name": "002_run3_CEN"},
+        }
+
+        assert expected_projects == returned_projects, (
+            "projects incorrectly returned"
+        )
 
 
 class TestGetXlsxReports(unittest.TestCase):
