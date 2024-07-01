@@ -435,10 +435,80 @@ class TestGetXlsxReports(unittest.TestCase):
     pass
 
 
+@patch('bin.utils.dx_manage.dxpy.find_data_objects')
 class TestGetSingleDir(unittest.TestCase):
-    """ """
+    """
+    Tests for dx_manage.get_single_dir
 
-    pass
+    Function to find the dias single output directory. This achieved by
+    using the multiQC html as a proxy for the single dir, as this is
+    always generated from the Dias single workflow once.
+    """
+    def test_manually_selected_path_correctly_used(self, mock_find):
+        """
+        Test that when a project has a manually selected Dias single
+        path in the config (i.e. from having multiple in the project)
+        that this is correctly returned
+        """
+        returned_paths = dx_manage.get_single_dir(
+            project='project-xxx',
+            selected_paths={
+                'project-xxx': '/output/240620/',
+                'project-yyy': '/output/240624'
+            }
+        )
+
+        assert returned_paths == ['project-xxx:/output/240620/'], (
+            'manually selected path incorrect'
+        )
+
+
+    def test_single_found_path_correctly_returned_from(self, mock_find):
+        """
+        Test that when we find a multiQC report that the single path is
+        correctly parsed from the describe response
+        """
+        mock_find.return_value = [
+            {
+                "project": "project-zzz",
+                "id": "file-yyy",
+                "describe": {
+                    "name": "240229_A01295_0328_BHYG25DRX3_multiqc.html",
+                    "folder": "/output/CEN-240302_1503/eggd_MultiQC/"
+                }
+            }
+        ]
+
+        returned_paths = dx_manage.get_single_dir(
+            project='project-zzz',
+            selected_paths={
+                'project-xxx': '/output/240620/',
+                'project-yyy': '/output/240624'
+            }
+        )
+
+        assert returned_paths == ['project-zzz:/output/CEN-240302_1503'], (
+            'Found path incorrectly returned'
+        )
+
+
+    def test_no_single_path_does_not_raise_error(self, mock_find):
+        """
+        Test that if no path is found that no error is raised and an
+        empty list is returned, since we will handle the empty path
+        upstream of this function
+        """
+        mock_find.return_value = []
+
+        returned_paths = dx_manage.get_single_dir(
+            project='project-zzz',
+            selected_paths={
+                'project-xxx': '/output/240620/',
+                'project-yyy': '/output/240624'
+            }
+        )
+
+        assert returned_paths == [], 'Missing Dias single dir incorrect'
 
 
 @patch('bin.utils.dx_manage.dxpy.bindings.search.find_apps')
