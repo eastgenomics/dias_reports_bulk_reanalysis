@@ -417,10 +417,88 @@ class TestGetJobStates(unittest.TestCase):
     pass
 
 
+@patch('bin.utils.dx_manage.dxpy.describe')
 class TestGetLaunchedWorkflowIds(unittest.TestCase):
-    """ """
+    """
+    Tests for dx_manage.get_launched_workflow_ids
 
-    pass
+    Function describes a list of dias batch job IDs and returns all
+    analysis jobs launched from them as a single list
+    """
+
+    def test_launched_jobs_correctly_returned(self, mock_describe):
+        """
+        Test that the launched jobs get correctly returned
+        """
+        # minimal describe return on each job
+        mock_describe.side_effect = [
+            {
+                'id': 'job-xxx',
+                'state': 'done',
+                'output': {
+                    'launched_jobs': 'job-aaa,job-bbb,job-ccc'
+                }
+            },
+            {
+                'id': 'job-yyy',
+                'state': 'done',
+                'output': {
+                    'launched_jobs': 'job-ddd,job-eee,job-fff'
+                }
+            }
+        ]
+
+        returned_jobs = dx_manage.get_launched_workflow_ids(
+            ['job-xxx', 'job-yyy']
+        )
+
+        expected_jobs = [
+            'job-aaa', 'job-bbb', 'job-ccc', 'job-ddd', 'job-eee', 'job-fff'
+        ]
+
+        assert returned_jobs == expected_jobs, 'launched jobs returned incorrect'
+
+
+    def test_no_launched_jobs_returns_empty_list(self, mock_decribe):
+        """
+        Test when there are no batch jobs that the function just returns
+        an empty list
+        """
+        output = dx_manage.get_launched_workflow_ids([])
+
+        assert output == [], 'output incorrect for no input jobs'
+
+
+    def test_failed_jobs_ignored(self, mock_describe):
+        """
+        Test that failed jobs dias_batch are excluded correctly
+        """
+        # minimal describe return on each job
+        mock_describe.side_effect = [
+            {
+                'id': 'job-xxx',
+                'state': 'done',
+                'output': {
+                    'launched_jobs': 'job-aaa,job-bbb,job-ccc'
+                }
+            },
+            {
+                'id': 'job-yyy',
+                'state': 'failed',
+                'output': {}
+            }
+        ]
+
+        returned_jobs = dx_manage.get_launched_workflow_ids(
+            ['job-xxx', 'job-yyy']
+        )
+
+        expected_jobs = ['job-aaa', 'job-bbb', 'job-ccc']
+
+        assert returned_jobs == expected_jobs, (
+            "wrong job IDs returned with failed dias batch job"
+        )
+
 
 
 class TestGetProjects(unittest.TestCase):
