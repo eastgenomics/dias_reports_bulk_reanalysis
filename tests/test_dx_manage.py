@@ -940,7 +940,7 @@ class TestRunBatch(unittest.TestCase):
         additional arguments to dias batch from the cmd line args that
         these are passed into the app input
         """
-                # example input args for dx_manage.run_batch
+        # example input args for dx_manage.run_batch
         inputs = {
             'project': 'project-xxx',
             'batch_app_id': 'app-xxx',
