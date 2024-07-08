@@ -875,10 +875,73 @@ class TestGetLatestDiasBatchApp(unittest.TestCase):
         )
 
 
+@patch('bin.utils.dx_manage.dxpy.DXApp')
 class TestRunBatch(unittest.TestCase):
-    """ """
+    """
+    Tests for dx_manage.run_batch
 
-    pass
+    Function is the main point that input arguments for eggd_dias_batch
+    are built and the app launched. Any additional arguments passed from
+    the command line are combined in before running the app.
+    """
+    def test_cnv_reports_input_correct_from_cnv_job_input(self, mock_app):
+        """
+        Test that cnv_reports boolean input is correctly set based off
+        of having a cnv_job to pass as input (i.e we don't want to try
+        rerun CNV calling)
+        """
+        # example input args for dx_manage.run_batch
+        inputs = {
+            'project': 'project-xxx',
+            'batch_app_id': 'app-xxx',
+            'single_path': '/output',
+            'manifest': 'file-xxx',
+            'name': 'dias_batch',
+            'batch_inputs': {},
+            'assay': 'test',
+            'terminate': False
+        }
+
+        with self.subTest('cnv_reports incorrect when cnv_job passed'):
+            dx_manage.run_batch(**inputs, cnv_job='job-xxx')
+            cnv_reports = mock_app.return_value.run.call_args[1]['app_input']['cnv_reports']
+
+            assert cnv_reports == True
+
+        with self.subTest('cnv_reports incorrect when cnv_job not passed'):
+            dx_manage.run_batch(**inputs, cnv_job=None)
+            cnv_reports = mock_app.return_value.run.call_args[1]['app_input']['cnv_reports']
+
+            assert cnv_reports == False
+
+
+    def test_additional_batch_inputs_passed_to_app_inputs(self, mock_app):
+        """
+        Test that when the optional `batch_inputs` is given to pass
+        additional arguments to dias batch from the cmd line args that
+        these are passed into the app input
+        """
+                # example input args for dx_manage.run_batch
+        inputs = {
+            'project': 'project-xxx',
+            'batch_app_id': 'app-xxx',
+            'single_path': '/output',
+            'manifest': 'file-xxx',
+            'name': 'dias_batch',
+            'assay': 'test',
+            'terminate': False
+        }
+
+        dx_manage.run_batch(
+            **inputs,
+            cnv_job='job-xxx',
+            batch_inputs={'split_tests': False}
+        )
+        app_input = mock_app.return_value.run.call_args[1]['app_input']
+
+        assert app_input.get('split_tests') == False, (
+            'additional batch inputs not correctly in passed app inputs'
+        )
 
 
 @patch('bin.utils.dx_manage.dxpy.find_data_objects')
