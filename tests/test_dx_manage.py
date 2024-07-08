@@ -272,9 +272,28 @@ class TestUnarchiveFiles(unittest.TestCase):
 
 
 class TestCreateFolder(unittest.TestCase):
-    """ """
+    """
+    Tests for dx_manage.create_folder
 
-    pass
+    This is a relatively pointless test since its a single method call
+    with no return value or any other logic, but I want that dopamine
+    hit of seeing 100% coverage, so here we are ¯\_(ツ)_/¯
+    """
+    @patch('bin.utils.dx_manage.dxpy.bindings.dxproject.DXProject')
+    def test_create_folder_called(self, mock_project):
+        """
+        Test that dxpy.bindings.dxproject.DXProject.new_folder is called
+        """
+        dx_manage.create_folder(path='/test_dir')
+
+        with self.subTest('DXProject.new_folder called'):
+            assert mock_project.return_value.new_folder.call_count == 1
+
+        with self.subTest('path passed to DXProject.new_folder'):
+            args = mock_project.return_value.new_folder.call_args[1]
+
+            assert args['folder'] == '/test_dir'
+
 
 
 @patch('bin.utils.dx_manage.dxpy.find_data_objects')
