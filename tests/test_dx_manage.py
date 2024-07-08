@@ -453,12 +453,6 @@ class TestGetCnvCallJob(unittest.TestCase):
         )
 
 
-class TestGetDependentFiles(unittest.TestCase):
-    """ """
-
-    pass
-
-
 class TestGetJobStates(unittest.TestCase):
     """
     Tests for dx_manage.get_job_states
