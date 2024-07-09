@@ -461,7 +461,7 @@ class TestAddClarityDataBackToSamples(unittest.TestCase):
         )
 
 
-    def error_raised_if_specimen_not_in_clarity_data(self):
+    def test_error_raised_if_specimen_not_in_clarity_data(self):
         """
         Test that a RuntimeError is correctly raised if the specimen
         ID is missing from the Clarity data
@@ -948,6 +948,7 @@ class TestParseSampleIdentifiers(unittest.TestCase):
             with self.subTest() and pytest.raises(RuntimeError, match=error):
                 utils.parse_sample_identifiers([sample])
 
+
 class TestSplitGenePanelsTestCodes():
     """
     Tests for utils.split_genepanels_test_codes()
@@ -1076,7 +1077,7 @@ class TestValidateTestCodes(unittest.TestCase):
             'sample': '444444-23251R0044',
             'instrument_id': '444444',
             'specimen_id': '23251R0044',
-            'codes': ['R257.3'],
+            'codes': ['HGNC:1234'],
             'date': datetime(2023, 2, 27, 0, 0)
         }
     ]
