@@ -251,19 +251,6 @@ def get_cnv_call_job(project, selected_jobs) -> list:
     return jobs
 
 
-def get_dependent_files(project_samples):
-    """
-    TODO
-
-    Parameters
-    ----------
-    project_samples : _type_
-        _description_
-    """
-    for project, samples in project_samples.values():
-        pass
-
-
 def get_job_states(job_ids) -> dict:
     """
     Query the state of given set of job/analysis IDs
