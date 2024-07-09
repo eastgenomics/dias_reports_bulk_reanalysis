@@ -272,9 +272,28 @@ class TestUnarchiveFiles(unittest.TestCase):
 
 
 class TestCreateFolder(unittest.TestCase):
-    """ """
+    """
+    Tests for dx_manage.create_folder
 
-    pass
+    This is a relatively pointless test since its a single method call
+    with no return value or any other logic, but I want that dopamine
+    hit of seeing 100% coverage, so here we are ¯\_(ツ)_/¯
+    """
+    @patch('bin.utils.dx_manage.dxpy.bindings.dxproject.DXProject')
+    def test_create_folder_called(self, mock_project):
+        """
+        Test that dxpy.bindings.dxproject.DXProject.new_folder is called
+        """
+        dx_manage.create_folder(path='/test_dir')
+
+        with self.subTest('DXProject.new_folder called'):
+            assert mock_project.return_value.new_folder.call_count == 1
+
+        with self.subTest('path passed to DXProject.new_folder'):
+            args = mock_project.return_value.new_folder.call_args[1]
+
+            assert args['folder'] == '/test_dir'
+
 
 
 @patch('bin.utils.dx_manage.dxpy.find_data_objects')
@@ -453,12 +472,6 @@ class TestGetCnvCallJob(unittest.TestCase):
         )
 
 
-class TestGetDependentFiles(unittest.TestCase):
-    """ """
-
-    pass
-
-
 class TestGetJobStates(unittest.TestCase):
     """
     Tests for dx_manage.get_job_states
@@ -504,7 +517,6 @@ class TestGetJobStates(unittest.TestCase):
         }
 
         assert returned_states == expected_states, "job states incorrectly parsed"
-
 
 
 @patch('bin.utils.dx_manage.dxpy.describe')
@@ -590,7 +602,6 @@ class TestGetLaunchedWorkflowIds(unittest.TestCase):
         )
 
 
-
 class TestGetProjects(unittest.TestCase):
     """
     Tests for dx_manage.get_projects
@@ -666,22 +677,26 @@ class TestGetXlsxReports(unittest.TestCase):
 
         assert mock_parallel.call_count == 3, "not called for all projects"
 
-    #TODO - come back to this after tests for find_in_parallel fixed
-    # @patch('bin.utils.dx_manage.dxpy.find_data_objects')
-    # def test_correct_search_pattern_generated(self, mock_find):
-    #     """
-    #     Test that the search pattern built in dx_manage.find_in_parallel
-    #     that is provided to dxpy.find_data_objects is as expected
-    #     """
-    #     dx_manage.get_xlsx_reports(
-    #         all_samples=self.samples,
-    #         projects=self.projects
-    #     )
+    @patch('bin.utils.dx_manage.dxpy.find_data_objects')
+    def test_correct_search_pattern_generated(self, mock_find):
+        """
+        Test that the search pattern built in dx_manage.find_in_parallel
+        that is provided to dxpy.find_data_objects is as expected
+        """
+        dx_manage.get_xlsx_reports(
+            all_samples=self.samples,
+            projects=self.projects
+        )
 
-    #     # mocked function args are stored as 2nd item in tuple
-    #     print(mock_find.call_args[1]['name'])
+        # mocked function passed arguments are stored as 2nd item in tuple
+        built_pattern = mock_find.call_args[1]['name']
 
-    #     exit(1)
+        expected_pattern = ".*sample_1.*xlsx|.*sample_2.*xlsx|.*sample_3.*xlsx"
+
+        assert built_pattern == expected_pattern, (
+            "Search pattern not as expected"
+        )
+
 
     @patch('bin.utils.dx_manage.find_in_parallel')
     def test_non_sample_xlsx_correctly_filtered_out(self, mock_parallel):
@@ -879,11 +894,73 @@ class TestGetLatestDiasBatchApp(unittest.TestCase):
         )
 
 
-
+@patch('bin.utils.dx_manage.dxpy.DXApp')
 class TestRunBatch(unittest.TestCase):
-    """ """
+    """
+    Tests for dx_manage.run_batch
 
-    pass
+    Function is the main point that input arguments for eggd_dias_batch
+    are built and the app launched. Any additional arguments passed from
+    the command line are combined in before running the app.
+    """
+    def test_cnv_reports_input_correct_from_cnv_job_input(self, mock_app):
+        """
+        Test that cnv_reports boolean input is correctly set based off
+        of having a cnv_job to pass as input (i.e we don't want to try
+        rerun CNV calling)
+        """
+        # example input args for dx_manage.run_batch
+        inputs = {
+            'project': 'project-xxx',
+            'batch_app_id': 'app-xxx',
+            'single_path': '/output',
+            'manifest': 'file-xxx',
+            'name': 'dias_batch',
+            'batch_inputs': {},
+            'assay': 'test',
+            'terminate': False
+        }
+
+        with self.subTest('cnv_reports incorrect when cnv_job passed'):
+            dx_manage.run_batch(**inputs, cnv_job='job-xxx')
+            cnv_reports = mock_app.return_value.run.call_args[1]['app_input']['cnv_reports']
+
+            assert cnv_reports == True
+
+        with self.subTest('cnv_reports incorrect when cnv_job not passed'):
+            dx_manage.run_batch(**inputs, cnv_job=None)
+            cnv_reports = mock_app.return_value.run.call_args[1]['app_input']['cnv_reports']
+
+            assert cnv_reports == False
+
+
+    def test_additional_batch_inputs_passed_to_app_inputs(self, mock_app):
+        """
+        Test that when the optional `batch_inputs` is given to pass
+        additional arguments to dias batch from the cmd line args that
+        these are passed into the app input
+        """
+        # example input args for dx_manage.run_batch
+        inputs = {
+            'project': 'project-xxx',
+            'batch_app_id': 'app-xxx',
+            'single_path': '/output',
+            'manifest': 'file-xxx',
+            'name': 'dias_batch',
+            'assay': 'test',
+            'terminate': False
+        }
+
+        dx_manage.run_batch(
+            **inputs,
+            cnv_job='job-xxx',
+            batch_inputs={'split_tests': False}
+        )
+        app_input = mock_app.return_value.run.call_args[1]['app_input']
+
+        assert app_input.get('split_tests') == False, (
+            'additional batch inputs not correctly in passed app inputs'
+        )
 
 
 @patch('bin.utils.dx_manage.dxpy.find_data_objects')
