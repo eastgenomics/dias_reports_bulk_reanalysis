@@ -229,9 +229,84 @@ class TestFilterNonUniqueSpecimenIds(unittest.TestCase):
 
 class TestFilterClaritySamplesWithNoReports(unittest.TestCase):
     """
-    TODO
+    Tests for utils.filter_clarity_samples_with_no_reports
+
+    Simple function to highlight if any samples from the Clarity sample
+    list have no reports in DNAnexus and therefore will not be run again
     """
-    pass
+    samples_with_report_data = [
+        {
+            "project": "project-xxx",
+            'sample': '111111-23251R0041',
+            'instrument_id': '111111',
+            'specimen_id': '23251R0041',
+            'codes': ['R134'],
+            'date': datetime(2023, 9, 22, 0, 0)
+        },
+        {
+            "project": "project-xxx",
+            'sample': '222222-23251R0042',
+            'instrument_id': '222222',
+            'specimen_id': '23251R0042',
+            'codes': ['R134'],
+            'date': datetime(2023, 10, 25, 0, 0)
+        }
+    ]
+
+    # data as parsed from Clarity, with an additional sample to the ones
+    # with reports
+    clarity_data = {
+        '23251R0041': {
+            'codes': ['R134'],
+            'date': datetime(2023, 9, 22, 0, 0)
+        },
+        '23251R0042': {
+            'codes': ['R144'],
+            'date': datetime(2023, 10, 25, 0, 0)
+        },
+        '23251R0043': {
+            'codes': ['R154'],
+            'date': datetime(2023, 3, 4, 0, 0)
+        }
+    }
+
+
+    @pytest.fixture(autouse=True)
+    def capsys(self, capsys):
+        """Capture stdout to provide it to tests"""
+        self.capsys = capsys
+
+
+    def test_correct_prints(self):
+        """
+        Test that the prints of total samples with / without reports
+        is correct
+        """
+        utils.filter_clarity_samples_with_no_reports(
+            clarity_samples=self.clarity_data,
+            samples_w_reports=self.samples_with_report_data
+        )
+
+        stdout = self.capsys.readouterr().out
+
+        with self.subTest("Expected with reports"):
+            expected_with_reports = (
+                "Total samples available to run reports for: 2"
+            )
+
+            assert expected_with_reports in stdout
+
+        with self.subTest("Expected without reports"):
+            expected_without_reports = (
+                "Total no. of outstanding samples from Clarity with no prior "
+                "reports in DNAnexus: 1"
+            )
+
+            assert expected_without_reports in stdout
+
+
+
+
 
 
 class TestGroupSamplesByProject(unittest.TestCase):
@@ -461,7 +536,7 @@ class TestAddClarityDataBackToSamples(unittest.TestCase):
         )
 
 
-    def error_raised_if_specimen_not_in_clarity_data(self):
+    def test_error_raised_if_specimen_not_in_clarity_data(self):
         """
         Test that a RuntimeError is correctly raised if the specimen
         ID is missing from the Clarity data
@@ -948,6 +1023,7 @@ class TestParseSampleIdentifiers(unittest.TestCase):
             with self.subTest() and pytest.raises(RuntimeError, match=error):
                 utils.parse_sample_identifiers([sample])
 
+
 class TestSplitGenePanelsTestCodes():
     """
     Tests for utils.split_genepanels_test_codes()
@@ -1076,7 +1152,7 @@ class TestValidateTestCodes(unittest.TestCase):
             'sample': '444444-23251R0044',
             'instrument_id': '444444',
             'specimen_id': '23251R0044',
-            'codes': ['R257.3'],
+            'codes': ['HGNC:1234'],
             'date': datetime(2023, 2, 27, 0, 0)
         }
     ]
