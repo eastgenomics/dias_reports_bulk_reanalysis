@@ -25,3 +25,10 @@ python3 bin/run_reports.py --assay CEN --clarity_export <export.xlsx>
 * `--clarity_export`: path to file containing export from Clarity
 * `--config` (optional): file ID of assay config file to use for eggd_dias_batch, if not specified will use latest in 001_Reference
 * `--batch_inputs` (optional): JSON formatted string of additional arguments to pass to eggd_dias_batch
+* `--limit` (optional): number of samples to limit running jobs for, if no date range is specified this will default to being the oldest n samples
+* `--start_date` (optional): Earliest date to select samples from Clarity to run reports for, to be specified as YYMMDD
+* `--end_date` (optional): Latest date to select samples from Clarity to run reports for, to be specified as YYMMDD
+* `--unarchive` (optional): controls if to start unarchiving of any required files
+* `--testing` (optional): Controls where dias batch is run, when testing launch all in one 003 project
+* `--terminate` (optional): Controls if to terminate all analysis jobs dias batch launches
+* `--monitor` (optional): Controls if to monitor and report on state of launched dias batch jobs
