@@ -6,9 +6,9 @@ All specimen IDs in the Clarity export that have a Test Validation Status of "Re
 
 If `--limit`, `--start_date` and / or `--end_date` are specified then the total sample list is limited correspondingly (for `--limit` the oldest samples are retained).
 
-All dependent files for each selected sample to run reports for is then checked for it's archival state, if any are in an archived state this will raise an error unless `--unarchive` is specified, in which case unarchival will be called per project and the script will stop.
+All dependent files for each selected sample to run reports for are then checked for their archival state, if any are in an archived state this will raise an error unless `--unarchive` is specified, in which case unarchival will be called per project and the script will stop.
 
-Once everything is in a state that reports may be run, it will begin launching eggd_dias_batch jobs for each sequencing runs worth of samples. This will either be in the original 002 projects (if `--testing=False`) or in a given 003 project (if `--testing=True`).
+Once everything is in a state that reports may be run, the script may be run to begin launching eggd_dias_batch jobs for each sequencing runs worth of samples. This will either be in the original 002 projects (if `--testing=False`) or in a given 003 project (if `--testing=True`).
 
 Once jobs are launched, the state of these jobs will be monitored and printed to stdout if `--monitor` is specified.
 
