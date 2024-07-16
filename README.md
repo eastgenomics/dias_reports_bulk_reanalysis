@@ -1,5 +1,7 @@
 ## Dias Reports Reanalysis
 
+![pytest](https://github.com/eastgenomics/dias_reports_bulk_reanalysis/actions/workflows/pytest.yml/badge.svg)
+
 Tool for the rerunning of Dias reports workflow for samples awaiting interpretation.
 
 All specimen IDs in the Clarity export that have a Test Validation Status of "Resulted" and their corresponding booked test codes and date are parsed, these are then searched against all current 002 projects to identify previously run reports to get the instrument IDs and project IDs.
