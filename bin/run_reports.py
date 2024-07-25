@@ -40,7 +40,8 @@ from utils.utils import (
     parse_config,
     parse_clarity_export,
     parse_sample_identifiers,
-    validate_test_codes
+    validate_test_codes,
+    write_to_log
 )
 
 
@@ -596,15 +597,30 @@ def main():
         else:
             print("Invalid response, please enter 'y' or 'n'")
 
+    now = datetime.datetime.today().strftime('%y%m%d_%H%M')
+    launched_job_log = f"launched_jobs_{now}_log.json"
+
     batch_job_ids = run_all_batch_jobs(args=args, all_sample_data=sample_data)
+
+    write_to_log(
+        log_file=launched_job_log,
+        key='dias_batch',
+        job_ids=batch_job_ids
+    )
 
     if args.monitor and batch_job_ids:
         monitor_launched_jobs(batch_job_ids, mode="batch")
 
         # monitor the launched reports workflows
         report_ids = get_launched_workflow_ids(batch_job_ids)
-        monitor_launched_jobs(report_ids, mode="reports")
 
+        write_to_log(
+            log_file=launched_job_log,
+            key='dias_reports',
+            job_ids= report_ids
+        )
+
+        monitor_launched_jobs(report_ids, mode="reports")
 
 if __name__ == "__main__":
 

@@ -576,3 +576,45 @@ def validate_test_codes(all_sample_data, genepanels):
         )
     else:
         print("All sample test codes valid!")
+
+
+def write_to_log(log_file, key, job_ids) -> None:
+    """
+    Writes given job IDs as an array to output JSON log file under the
+    specified key name
+
+    Parameters
+    ----------
+    log_file : str
+        file name of JSON log to write
+    key : str
+        name of field to write job IDs to
+    job_ids : list
+        list of job IDs to write
+
+    Raises
+    ------
+    AssertionError
+        Raised if given log_file is not a json
+    """
+    assert log_file.endswith('.json'), (
+        f'Specified log file {log_file} does not have a .json suffix'
+    )
+
+    log_file = path.abspath(path.join(
+        path.dirname(path.abspath(__file__)),
+        f"../../logs/{log_file}"
+    ))
+
+    if path.exists(log_file):
+        with open(log_file, 'r') as fh:
+            log_data = json.load(fh)
+    else:
+        log_data = {}
+
+    log_data[key] = job_ids
+
+    with open(log_file, 'w') as fh:
+        json.dump(log_data, fh)
+
+    print(f"Launched jobs IDs  for {key} written to {log_file}")
