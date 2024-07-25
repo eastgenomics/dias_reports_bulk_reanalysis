@@ -1,5 +1,6 @@
 from copy import deepcopy
 from datetime import datetime, timedelta
+import json
 import os
 import unittest
 from unittest.mock import patch
@@ -1250,3 +1251,86 @@ class TestValidateTestCodes(unittest.TestCase):
             assert expected_stdout_warning in stdout, (
                 'expected stdout warnings incorrect'
             )
+
+
+class TestWriteToLog(unittest.TestCase):
+    """
+    Tests for utils.write_to_log
+
+    Function takes a filename of a log to write to along with a key and
+    list of job IDs, and updates (or creates a new) the given log file.
+    """
+    def test_assertion_error_raised_if_non_json_specified(self):
+        """
+        Test that if a non-json file is provided that an AssertionError
+        is raised
+        """
+        with pytest.raises(AssertionError):
+            utils.write_to_log(
+                log_file="my_log.txt",
+                key='foo',
+                job_ids=['bar']
+            )
+
+
+    @patch('bin.utils.utils.path')
+    def test_log_file_updated_if_already_exists(self, mock_path):
+        """
+        Test that if a log already exists that it is updated
+        and not overwritten
+        """
+        # create a test file to exist
+        with open('/tmp/test_config.json', 'w') as fh:
+            json.dump({'foo': ['bar']}, fh)
+
+        mock_path.abspath.return_value = '/tmp/test_config.json'
+
+        utils.write_to_log(
+            log_file="test_config.json",
+            key='baz',
+            job_ids=['blarg']
+        )
+
+        # test that the log file has been updated and not overwritten
+        with open('/tmp/test_config.json', 'r') as fh:
+            log_contents = json.load(fh)
+
+        expected_contents = {
+            'foo': ['bar'],
+            'baz': ['blarg']
+        }
+
+        os.remove('/tmp/test_config.json')
+
+        assert log_contents == expected_contents, (
+            'Log contents not as expected'
+        )
+
+
+    @patch('bin.utils.utils.path')
+    def test_log_file_created_if_not_already_exists(self, mock_path):
+        """
+        Test that if a log does not already exist that it is created
+        """
+        mock_path.abspath.return_value = '/tmp/test_config.json'
+        mock_path.exists.return_value = False
+
+        utils.write_to_log(
+            log_file="test_config.json",
+            key='baz',
+            job_ids=['blarg']
+        )
+
+        # test that the log file has been created
+        with open('/tmp/test_config.json', 'r') as fh:
+            log_contents = json.load(fh)
+
+        os.remove('/tmp/test_config.json')
+
+        expected_contents = {
+            'baz': ['blarg']
+        }
+
+        assert log_contents == expected_contents, (
+            'new log file does not contain the expected contents'
+        )
