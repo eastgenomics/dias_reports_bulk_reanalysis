@@ -34,3 +34,54 @@ python3 bin/run_reports.py --assay CEN --clarity_export <export.xlsx>
 * `--testing` (optional): Controls where dias batch is run, when testing launch all in one 003 project
 * `--terminate` (optional): Controls if to terminate all analysis jobs dias batch launches
 * `--monitor` (optional): Controls if to monitor and report on state of launched dias batch jobs
+
+## Logging
+
+When jobs have been launched a json log file is generated with the name format `launched_jobs_{yymmdd_hhmm}_log.json`. This stores the job IDs of the launched dias_batch and dias_reports_workflows jobs, allowing for querying the state and accessing output files.
+
+The log file is structured as follows:
+```
+{
+    "dias_batch": [
+        "job-Gp3vXPQ4BgGVFxJ76VG89ZbG",
+        "job-Gp8Y5Z84ZB47zXq3JJG3qvB0",
+        "job-GpFk6pj4z9pgpy7pKGx44KP3",
+        "job-GpP3kjj49kjyFG16JPJ59jBV"
+    ],
+    "dias_reports": [
+        "analysis-GpP4gy849kjxGY2YGy7117B2",
+        "analysis-GpP4gy049kjfgJ290YPG803B",
+        "analysis-GpP4gxQ49kjfgJ290YPG8030",
+        "analysis-GpP4gx849kjX9bjk9XjF6K8q"
+    ],
+    "eggd_artemis": [
+        "job-GpFp6v84z9pYz690YgkP7JJX"
+    ]
+}
+```
+
+### Example useful commands to query the log file:
+
+* check the state of dias_batch jobs:
+```
+$ jq -r '.dias_batch[]' launched_jobs_240729_1035_log.json | xargs -P16 -I{} sh -c "dx describe --json {} | jq -r '[.id,.state] | @tsv'"
+job-GpP3kjj49kjyFG16JPJ59jBV    done
+job-Gp8Y5Z84ZB47zXq3JJG3qvB0    done
+job-Gp3vXPQ4BgGVFxJ76VG89ZbG    done
+job-GpFk6pj4z9pgpy7pKGx44KP3    done
+```
+
+* check the state of dias_reports jobs:
+```
+$ jq -r '.dias_reports[]' launched_jobs_240729_1035_log.json | xargs -P16 -I{} sh -c "dx describe --json {} | jq -r '[.id,.state] | @tsv'"
+analysis-GpP4gy049kjfgJ290YPG803B       done
+analysis-GpP4gxQ49kjfgJ290YPG8030       done
+analysis-GpP4gx849kjX9bjk9XjF6K8q       done
+analysis-GpP4gy849kjxGY2YGy7117B2       done
+```
+
+* check the state of eggd_artemis jobs:
+```
+$ jq -r '.eggd_artemis[]' launched_jobs_240729_1035_log.json | xargs -P16 -I{} sh -c "dx describe --json {} | jq -r '[.id,.state] | @tsv'"
+job-GpFp6v84z9pYz690YgkP7JJX    done
+```

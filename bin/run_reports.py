@@ -612,12 +612,18 @@ def main():
         monitor_launched_jobs(batch_job_ids, mode="batch")
 
         # monitor the launched reports workflows
-        report_ids = get_launched_workflow_ids(batch_job_ids)
+        artemis_ids, report_ids = get_launched_workflow_ids(batch_job_ids)
 
         write_to_log(
             log_file=launched_job_log,
             key='dias_reports',
             job_ids= report_ids
+        )
+
+        write_to_log(
+            log_file=launched_job_log,
+            key='eggd_artemis',
+            job_ids= artemis_ids
         )
 
         monitor_launched_jobs(report_ids, mode="reports")
