@@ -274,9 +274,9 @@ def get_job_states(job_ids) -> dict:
     return job_state
 
 
-def get_launched_workflow_ids(batch_ids) -> list:
+def get_launched_workflow_ids(batch_ids) -> Union[list, list]:
     """
-    Get analysis IDs of launched Dias reports
+    Get analysis IDs of launched Dias reports and job ID of eggd_artemis
 
     Parameters
     ----------
@@ -285,6 +285,9 @@ def get_launched_workflow_ids(batch_ids) -> list:
 
     Returns
     -------
+    list
+        list of eggd_artemis jobs, n.b. this should always be a single
+        job but keeping this as a list to handle future changes
     list
         list of reports analysis IDs
     """
@@ -301,7 +304,12 @@ def get_launched_workflow_ids(batch_ids) -> list:
     report_jobs = [jobs.split(",") for jobs in report_jobs]
     report_jobs = [job for jobs in report_jobs for job in jobs]
 
-    return report_jobs
+    # the only single jobs *should* be eggd_artemis here since we aren't
+    # running CNV calling, split this from the reports jobs
+    artemis_jobs = [x for x in report_jobs if x.startswith('job-')]
+    report_jobs = [x for x in report_jobs if x.startswith('analysis-')]
+
+    return artemis_jobs, report_jobs
 
 
 def get_projects(assay) -> List[dict]:

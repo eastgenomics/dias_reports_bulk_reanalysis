@@ -538,27 +538,38 @@ class TestGetLaunchedWorkflowIds(unittest.TestCase):
                 'id': 'job-xxx',
                 'state': 'done',
                 'output': {
-                    'launched_jobs': 'job-aaa,job-bbb,job-ccc'
+                    'launched_jobs': 'job-aaa,analysis-aaa,analysis-bbb'
                 }
             },
             {
                 'id': 'job-yyy',
                 'state': 'done',
                 'output': {
-                    'launched_jobs': 'job-ddd,job-eee,job-fff'
+                    'launched_jobs': 'job-bbb,analysis-ccc,analysis-ddd'
                 }
             }
         ]
 
-        returned_jobs = dx_manage.get_launched_workflow_ids(
+        returned_jobs, returned_reports = dx_manage.get_launched_workflow_ids(
             ['job-xxx', 'job-yyy']
         )
 
-        expected_jobs = [
-            'job-aaa', 'job-bbb', 'job-ccc', 'job-ddd', 'job-eee', 'job-fff'
+        expected_artemis_jobs = [
+            'job-aaa', 'job-bbb'
         ]
 
-        assert returned_jobs == expected_jobs, 'launched jobs returned incorrect'
+        expected_reports_analyses = [
+            'analysis-aaa',
+            'analysis-bbb',
+            'analysis-ccc',
+            'analysis-ddd'
+        ]
+
+        with self.subTest('artemis jobs correct'):
+            assert returned_jobs == expected_artemis_jobs
+
+        with self.subTest('reports workflows correct'):
+            assert returned_reports == expected_reports_analyses
 
 
     def test_no_launched_jobs_returns_empty_list(self, mock_decribe):
@@ -566,9 +577,9 @@ class TestGetLaunchedWorkflowIds(unittest.TestCase):
         Test when there are no batch jobs that the function just returns
         an empty list
         """
-        output = dx_manage.get_launched_workflow_ids([])
+        jobs, analyses = dx_manage.get_launched_workflow_ids([])
 
-        assert output == [], 'output incorrect for no input jobs'
+        assert (jobs, analyses) == ([], []), 'output incorrect for no input jobs'
 
 
     def test_failed_jobs_ignored(self, mock_describe):
@@ -581,7 +592,7 @@ class TestGetLaunchedWorkflowIds(unittest.TestCase):
                 'id': 'job-xxx',
                 'state': 'done',
                 'output': {
-                    'launched_jobs': 'job-aaa,job-bbb,job-ccc'
+                    'launched_jobs': 'job-aaa,analysis-aaa,analysis-bbb'
                 }
             },
             {
@@ -591,15 +602,18 @@ class TestGetLaunchedWorkflowIds(unittest.TestCase):
             }
         ]
 
-        returned_jobs = dx_manage.get_launched_workflow_ids(
+        returned_jobs, returned_analyses = dx_manage.get_launched_workflow_ids(
             ['job-xxx', 'job-yyy']
         )
 
-        expected_jobs = ['job-aaa', 'job-bbb', 'job-ccc']
+        expected_jobs = ['job-aaa']
+        expected_analyses = ['analysis-aaa', 'analysis-bbb']
 
-        assert returned_jobs == expected_jobs, (
-            "wrong job IDs returned with failed dias batch job"
-        )
+        with self.subTest('artemis jobs correct'):
+            assert returned_jobs == expected_jobs
+
+        with self.subTest('reports workflows correct'):
+            assert returned_analyses == expected_analyses
 
 
 class TestGetProjects(unittest.TestCase):
@@ -1165,5 +1179,4 @@ class TestUploadManifest(unittest.TestCase):
         assert file_id == 'file-GgQP6X84bjX3J53Vv1Yxyz7b', (
             "uploaded file ID incorrect"
         )
-
 
