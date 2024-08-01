@@ -276,7 +276,7 @@ def get_job_states(job_ids) -> dict:
 
 def get_launched_workflow_ids(batch_ids) -> Union[list, list]:
     """
-    Get analysis IDs of launched Dias reports and eggd_artemis
+    Get analysis IDs of launched Dias reports and job ID of eggd_artemis
 
     Parameters
     ----------
