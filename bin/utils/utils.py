@@ -618,3 +618,30 @@ def write_to_log(log_file, key, job_ids) -> None:
         json.dump(log_data, fh)
 
     print(f"Launched jobs IDs  for {key} written to {log_file}")
+
+
+def read_from_log(log_file) -> dict:
+    """
+    Reads in JSON log file containing launched job IDs
+
+    Parameters
+    ----------
+    log_file : str
+        log file to read job IDs from
+
+    Returns
+    -------
+    dict
+        contents of log file
+
+    Raises
+    ------
+    AssertionError
+        Raised if a non JSON file is provided
+    """
+    assert log_file.endswith('.json'), 'JSON file not provided to read from'
+
+    with open(log_file) as fh:
+        contents = json.loads(fh.read())
+
+    return contents

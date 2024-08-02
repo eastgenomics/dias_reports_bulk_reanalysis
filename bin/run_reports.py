@@ -12,6 +12,7 @@ from os import path
 from time import sleep
 from typing import List
 
+import dxpy
 
 from utils.dx_manage import (
     check_archival_state,
@@ -34,6 +35,7 @@ from utils.dx_manage import (
 
 from utils.utils import (
     add_clarity_data_back_to_samples,
+    call_in_parallel,
     filter_non_unique_specimen_ids,
     filter_clarity_samples_with_no_reports,
     group_samples_by_project,
@@ -42,7 +44,8 @@ from utils.utils import (
     parse_clarity_export,
     parse_sample_identifiers,
     validate_test_codes,
-    write_to_log
+    write_to_log,
+    read_from_log
 )
 
 
@@ -607,6 +610,27 @@ def verify_batch_inputs_argument(args):
     ), f"Invalid inputs provided to --batch_inputs: {invalid_inputs}"
 
     return args
+
+
+def download_all_reports(log_file) -> None:
+    """
+    Downloads all output xlsx reports, coverage reports, artemis files
+    and multiQC reports from the given log file of Dias report jobs.
+
+    This will be downloaded to the directory structure of a single
+    folder per project the jobs were run in.
+
+    Parameters
+    ----------
+    log_file : str
+        log file to read job IDs from
+    """
+    job_ids = read_from_log(log_file=log_file)
+    job_ids = job_ids.get('dias_reports', []) + job_ids.get('eggd_artemis', [])
+
+    job_details = call_in_parallel(dxpy.describe, job_ids)
+
+
 
 
 def main():
