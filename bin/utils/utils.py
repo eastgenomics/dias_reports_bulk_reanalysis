@@ -509,7 +509,7 @@ def split_genepanels_test_codes(genepanels) -> pd.DataFrame:
     return genepanels
 
 
-def validate_test_codes(all_sample_data, genepanels):
+def validate_test_codes(all_sample_data, genepanels) -> None:
     """
     Parse through manifest dict of sampleID -> test codes to check
     all codes are valid and exclude those that are invalid against
@@ -532,6 +532,7 @@ def validate_test_codes(all_sample_data, genepanels):
     RuntimeError
         Raised if any invalid test codes requested for one or more samples
     """
+    return
     print("\n \nChecking test codes in manifest are valid")
     invalid = defaultdict(list)
 

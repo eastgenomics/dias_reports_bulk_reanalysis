@@ -392,7 +392,7 @@ def get_xlsx_reports(all_samples, projects) -> list:
     return all_reports
 
 
-def get_single_dir(project, selected_paths) -> str:
+def get_single_dir(project, selected_paths) -> list:
     """
     Find the Dias single output directory in the project
 
@@ -406,8 +406,8 @@ def get_single_dir(project, selected_paths) -> str:
 
     Returns
     -------
-    str
-        Dias single output path
+    list
+        list of Dias single output path(s)
     """
     if selected_paths.get(project):
         path = f"{project}:{selected_paths.get(project)}"
