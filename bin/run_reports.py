@@ -433,10 +433,20 @@ def parse_args() -> argparse.Namespace:
         parsed arguments
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument(
+    subparsers = parser.add_subparsers(
+        help='mode to run', dest='mode', required=True
+    )
+
+    reanalysis_parser = subparsers.add_parser(
+        'reanalysis',
+        help='mode to perform reanalysis from Clarity samples'
+    )
+
+    reanalysis_parser.add_argument(
         "-a", "--assay", type=str, choices=["CEN", "TWE"], required=True
     )
-    clarity = parser.add_mutually_exclusive_group(required=True)
+
+    clarity = reanalysis_parser.add_mutually_exclusive_group(required=True)
     clarity.add_argument(
         "--clarity_export", type=str, help=(
             'export from Clarity to parse samples from if not connecting'
@@ -448,7 +458,7 @@ def parse_args() -> argparse.Namespace:
             "analysis and their respective test codes"
         )
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--config",
         type=str,
         help=(
@@ -456,7 +466,7 @@ def parse_args() -> argparse.Namespace:
             "will select latest from 001_Reference"
         ),
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--batch_inputs",
         type=str,
         help=(
@@ -464,7 +474,7 @@ def parse_args() -> argparse.Namespace:
             "e.g. '{\"unarchive\": True}'"
         ),
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--limit",
         default=None,
         type=int,
@@ -473,7 +483,7 @@ def parse_args() -> argparse.Namespace:
             "specified this will default to being the oldest n samples"
         )
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--start_date",
         default=None,
         type=str,
@@ -482,7 +492,7 @@ def parse_args() -> argparse.Namespace:
             "to be specified as YYMMDD"
         )
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--end_date",
         default=None,
         type=str,
@@ -491,13 +501,13 @@ def parse_args() -> argparse.Namespace:
             "to be specified as YYMMDD"
         )
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--unarchive",
         default=None,
         action="store_true",
         help="controls if to start unarchiving of any required files"
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--testing",
         action='store_true',
         default=False,
@@ -506,13 +516,13 @@ def parse_args() -> argparse.Namespace:
             "one 003 project"
         ),
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--terminate",
         action='store_true',
         default=False,
         help="Controls if to terminate all analysis jobs dias batch launches",
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--monitor",
         type=bool,
         default=True,
@@ -522,10 +532,24 @@ def parse_args() -> argparse.Namespace:
         ),
     )
 
+    download_parser = subparsers.add_parser(
+        'download',
+        help='mode to download outputs from a log file of job IDs'
+    )
+
+    download_parser.add_argument(
+        '--job_log', type=str, help=(
+            'JSON log file output from reanalysis mode from which to download '
+            'the outputs of all Dias reports jobs'
+        )
+    )
+
+
     args = parser.parse_args()
 
-    if args.batch_inputs:
-        args = verify_batch_inputs_argument(args)
+    if args.mode == 'reanalysis':
+        if args.batch_inputs:
+            args = verify_batch_inputs_argument(args)
 
     input_str = '\n\t'.join(f"{k} : {v}" for k, v in args.__dict__.items())
     print(f"Specified arguments:\n\t{input_str}\n")
@@ -587,6 +611,13 @@ def verify_batch_inputs_argument(args):
 
 def main():
     args = parse_args()
+
+    if args.mode == 'download':
+        # call method to download files
+        print('download')
+
+        exit()
+
 
     if args.clarity_connect:
         pass
