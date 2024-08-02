@@ -438,6 +438,38 @@ def get_single_dir(project, selected_paths) -> str:
     return paths
 
 
+def get_multiqc_report(project, single_path) -> list:
+    """
+    Finds the multiQC report in the given Dias single path
+
+    Parameters
+    ----------
+    project : str
+        project ID of DNAnexus project to search
+    snv_path : str
+        path to snv reports
+
+    Returns
+    -------
+    list
+        file ID(s) of the multiqc file(s)
+    """
+    print(f'searching for multiqc reports')
+    reports = list(dxpy.find_data_objects(
+        project=project,
+        folder=single_path,
+        name="*-multiqc.html",
+        name_mode='glob',
+        describe=True
+    ))
+
+    dxpy.bindings.search.find_data_objects()
+
+    print(f'reports found: {[x["id"] for x in reports]}')
+
+    return [x['id'] for x in reports]
+
+
 def get_latest_dias_batch_app() -> str:
     """
     Get the app ID of the latest eggd_dias_batch
