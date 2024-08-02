@@ -295,7 +295,6 @@ class TestCreateFolder(unittest.TestCase):
             assert args['folder'] == '/test_dir'
 
 
-
 @patch('bin.utils.dx_manage.dxpy.find_data_objects')
 @patch(
     'bin.utils.dx_manage.concurrent.futures.ThreadPoolExecutor.submit',
@@ -859,6 +858,52 @@ class TestGetSingleDir(unittest.TestCase):
         )
 
         assert returned_paths == [], 'Missing Dias single dir incorrect'
+
+
+@patch('bin.utils.dx_manage.dxpy.find_data_objects')
+class TestGetMultiqcReport(unittest.TestCase):
+    """
+    Tests for dx_manage.get_multiqc_report
+
+    Function returns a list of file IDs from searching a given
+    project:path for multiQC HTML reports
+    """
+    def test_ids_returned_correctly(self, mock_find):
+        """
+        Test when reports are found that a list of IDs are returned
+        """
+        mock_find.return_value = [
+            {
+                'project': 'project-xxx',
+                'id': 'file-xxx'
+            },
+            {
+                'project': 'project-yyy',
+                'id': 'file-yyy'
+            }
+        ]
+
+        returned_file_ids = dx_manage.get_multiqc_report(
+            single_path='project-xxx:/output/240802'
+        )
+
+        assert sorted(returned_file_ids) == ['file-xxx', 'file-yyy'], (
+            'multiQC report IDs returned incorrect'
+        )
+
+    def test_project_path_split_correct(self, mock_find):
+        """
+        Test that the correct parameters are passed to dxpy.find_data_objects
+        """
+        returned_file_ids = dx_manage.get_multiqc_report(
+            single_path='project-xxx:/output/240802'
+        )
+
+        with self.subTest('correct project'):
+            assert mock_find.call_args[1]['project'] == 'project-xxx'
+
+        with self.subTest('correct folder'):
+            assert mock_find.call_args[1]['folder'] == '/output/240802'
 
 
 @patch('bin.utils.dx_manage.dxpy.bindings.search.find_apps')

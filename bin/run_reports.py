@@ -23,6 +23,7 @@ from utils.dx_manage import (
     get_projects,
     get_xlsx_reports,
     get_single_dir,
+    get_multiqc_report,
     get_latest_dias_batch_app,
     run_batch,
     upload_manifest,
@@ -140,6 +141,7 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
     # dict we will build up of project ID -> issues, will include:
     # - unhandled instances of multiple CNV call jobs or Dias single
     # - unarchiving / archived files
+    # - missing / multiple multiQC reports in given single dir
     manual_review = defaultdict(dict)
 
     for project_id, project_data in project_samples.items():
@@ -156,6 +158,10 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
             selected_paths=manual_dias_single_paths
         )
 
+        multiqc_report = get_multiqc_report(
+            single_path=dias_single_paths[0]
+        )
+
         if len(cnv_jobs) > 1:
             # unhandled multiple CNV call job => throw in error bucket
             manual_review[project_id]['cnv_call'] = cnv_jobs
@@ -168,6 +174,15 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
             manual_review[project_id]['dias_single'] = dias_single_paths
         else:
             project_samples[project_id]['dias_single'] = dias_single_paths[0]
+
+        # verify found single multiQC report in single dir
+        if len(multiqc_report) == 0:
+            manual_review[project_id]['multiqc'] = None
+        elif len(multiqc_report) > 1:
+            manual_review[project_id]['multiqc'] = multiqc_report
+        else:
+            project_samples[project_id]['multiqc'] = multiqc_report[0]
+
 
         _, unarchiving, archived = check_archival_state(
             project=project_id, sample_data=project_data
@@ -212,6 +227,12 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
                 print(
                     f"\t{len(issues.get('archived'))} required files are in "
                     "an archived state"
+                )
+
+            if issues.get('multiqc'):
+                print(
+                    "Did not find single multiQC report in project: "
+                    f"{issues.get('multiqc')}"
                 )
 
         if unarchive and [x.get('archived') for x in manual_review.values()]:

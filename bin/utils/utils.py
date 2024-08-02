@@ -421,7 +421,7 @@ def parse_sample_identifiers(reports) -> list:
     # that won't pass the below parsing
     invalid = [
         x['describe']['name'] for x in reports if not
-        re.match(r'[\w]+-[\w\-]+_[\w\-\.]+\.xlsx', x['describe']['name'])
+        re.match(r'[\w]+-[\w\-]+_[\w\-\.:]+\.xlsx', x['describe']['name'])
     ]
 
     if invalid:
@@ -509,7 +509,7 @@ def split_genepanels_test_codes(genepanels) -> pd.DataFrame:
     return genepanels
 
 
-def validate_test_codes(all_sample_data, genepanels):
+def validate_test_codes(all_sample_data, genepanels) -> None:
     """
     Parse through manifest dict of sampleID -> test codes to check
     all codes are valid and exclude those that are invalid against

@@ -392,7 +392,7 @@ def get_xlsx_reports(all_samples, projects) -> list:
     return all_reports
 
 
-def get_single_dir(project, selected_paths) -> str:
+def get_single_dir(project, selected_paths) -> list:
     """
     Find the Dias single output directory in the project
 
@@ -406,8 +406,8 @@ def get_single_dir(project, selected_paths) -> str:
 
     Returns
     -------
-    str
-        Dias single output path
+    list
+        list of Dias single output path(s)
     """
     if selected_paths.get(project):
         path = f"{project}:{selected_paths.get(project)}"
@@ -436,6 +436,33 @@ def get_single_dir(project, selected_paths) -> str:
     print(f"Found Dias single path(s): {paths}")
 
     return paths
+
+
+def get_multiqc_report(single_path) -> list:
+    """
+    Finds the multiQC report in the given Dias single path
+
+    Parameters
+    ----------
+    snv_path : str
+        path to snv reports
+
+    Returns
+    -------
+    list
+        file ID(s) of the multiqc file(s)
+    """
+    project, path = single_path.split(':')
+
+    reports = list(dxpy.find_data_objects(
+        project=project,
+        folder=path,
+        name="*-multiqc.html",
+        name_mode='glob',
+        describe=True
+    ))
+
+    return [x['id'] for x in reports]
 
 
 def get_latest_dias_batch_app() -> str:
