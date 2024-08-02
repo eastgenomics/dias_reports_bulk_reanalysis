@@ -438,14 +438,12 @@ def get_single_dir(project, selected_paths) -> list:
     return paths
 
 
-def get_multiqc_report(project, single_path) -> list:
+def get_multiqc_report(single_path) -> list:
     """
     Finds the multiQC report in the given Dias single path
 
     Parameters
     ----------
-    project : str
-        project ID of DNAnexus project to search
     snv_path : str
         path to snv reports
 
@@ -454,18 +452,15 @@ def get_multiqc_report(project, single_path) -> list:
     list
         file ID(s) of the multiqc file(s)
     """
-    print(f'searching for multiqc reports')
+    project, path = single_path.split(':')
+
     reports = list(dxpy.find_data_objects(
         project=project,
-        folder=single_path,
+        folder=path,
         name="*-multiqc.html",
         name_mode='glob',
         describe=True
     ))
-
-    dxpy.bindings.search.find_data_objects()
-
-    print(f'reports found: {[x["id"] for x in reports]}')
 
     return [x['id'] for x in reports]
 

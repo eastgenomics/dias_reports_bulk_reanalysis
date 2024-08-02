@@ -159,7 +159,6 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
         )
 
         multiqc_report = get_multiqc_report(
-            project=project_id,
             single_path=dias_single_paths[0]
         )
 
