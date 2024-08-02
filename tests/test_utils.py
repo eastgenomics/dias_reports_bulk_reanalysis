@@ -306,10 +306,6 @@ class TestFilterClaritySamplesWithNoReports(unittest.TestCase):
             assert expected_without_reports in stdout
 
 
-
-
-
-
 class TestGroupSamplesByProject(unittest.TestCase):
     """
     Tests for utils.group_samples_by_project
@@ -908,6 +904,20 @@ class TestParseSampleIdentifiers(unittest.TestCase):
                 },
                 "archivalState": "live"
             }
+        },
+        {
+            "project": "project-Gk7bv204fz4YVzb8Yp0BYjG2",
+            "id": "file-GkBypqj4X9G88hfbf7y7bdbdvwlA",
+            "describe": {
+                "id": "file-GkBypqj4X9G88hfbf7y7bdbdvwlA",
+                "name": "333333333-9876R54321-24NGCEN41-9527-F-99347387_HGNC:1234_SNV_1.xlsx",
+                "createdBy": {
+                    "user": "user-1",
+                    "job": "job-GkBy0k04fz4Y4BG6yv38XkzQ",
+                    "executable": "app-Gj6YVp841jVJZZbXV9xXGybk"
+                },
+                "archivalState": "live"
+            }
         }
     ]
 
@@ -930,6 +940,12 @@ class TestParseSampleIdentifiers(unittest.TestCase):
                 "project": "project-Gk7bv204fz4YVzb8Yp0BYjG2",
                 "sample": "222222222-9876R54321-24NGCEN41-9527-F-99347387",
                 "instrument_id": "222222222",
+                "specimen_id": "9876R54321"
+            },
+            {
+                "project": "project-Gk7bv204fz4YVzb8Yp0BYjG2",
+                "sample": "333333333-9876R54321-24NGCEN41-9527-F-99347387",
+                "instrument_id": "333333333",
                 "specimen_id": "9876R54321"
             }
         ]
@@ -980,6 +996,12 @@ class TestParseSampleIdentifiers(unittest.TestCase):
                 "project": "project-Gk7bv204fz4YVzb8Yp0BYjG2",
                 "sample": "222222222-9876R54321-24NGCEN41-9527-F-99347387",
                 "instrument_id": "222222222",
+                "specimen_id": "9876R54321"
+            },
+            {
+                "project": "project-Gk7bv204fz4YVzb8Yp0BYjG2",
+                "sample": "333333333-9876R54321-24NGCEN41-9527-F-99347387",
+                "instrument_id": "333333333",
                 "specimen_id": "9876R54321"
             }
         ]

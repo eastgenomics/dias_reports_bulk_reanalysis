@@ -421,7 +421,7 @@ def parse_sample_identifiers(reports) -> list:
     # that won't pass the below parsing
     invalid = [
         x['describe']['name'] for x in reports if not
-        re.match(r'[\w]+-[\w\-]+_[\w\-\.]+\.xlsx', x['describe']['name'])
+        re.match(r'[\w]+-[\w\-]+_[\w\-\.:]+\.xlsx', x['describe']['name'])
     ]
 
     if invalid:
