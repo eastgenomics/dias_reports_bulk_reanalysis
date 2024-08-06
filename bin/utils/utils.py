@@ -4,19 +4,24 @@ General utility functions
 from collections import defaultdict
 import concurrent
 from datetime import datetime
+from itertools import groupby
 import json
 from os import path
 import re
 from typing import Union
 
+import dxpy
 import pandas as pd
 
 
-def call_in_parallel(func, items) -> list:
+def call_in_parallel(func, items, **kwargs) -> list:
     """
     Calls the given function in parallel using concurrent.futures on
     the given set of items (i.e for calling dxpy.describe() on multiple
-    object IDs)
+    object IDs).
+
+    Additional arguments specified to kwargs are directly passed to the
+    specified function.
 
     Parameters
     ----------
@@ -32,9 +37,10 @@ def call_in_parallel(func, items) -> list:
     """
     results = []
 
-
     with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
-        concurrent_jobs = {executor.submit(func, item): item for item in items}
+        concurrent_jobs = {
+            executor.submit(func, item, **kwargs): item for item in items
+        }
 
         for future in concurrent.futures.as_completed(concurrent_jobs):
             # access returned output as each is returned in any order
@@ -210,6 +216,58 @@ def group_samples_by_project(samples, projects) -> dict:
     )
 
     return {k: dict(v) for k, v in dict(project_samples).items()}
+
+
+def group_dx_objects_by_project(dx_objects) -> dict:
+    """
+    Groups a list of DNAnexus objects by the project they are in.
+
+    Dict returned contains the project name and items in that project
+    under separate keys with the following structure:
+
+    {
+        'project-xxx': {
+            'project_name': '002_240401_A01295_0334_XXYNSHDBDR',
+            'items': [
+                {
+                    'id': 'file-xxx',
+                    'project': 'project-xxx',
+                    'describe': {
+                        ...
+                    }
+                }
+                ...
+            ]
+        }
+    },
+    {
+        'project-yyy': {
+            ...
+
+
+    Parameters
+    ----------
+    dx_objects : list
+        list of DNAnexus objects to split
+
+    Returns
+    -------
+    dict
+        DNAnexus objects split by project
+    """
+    # first get all project names for the project IDs for the given objects
+    projects = set([x['project'] for x in dx_objects])
+    project_details = call_in_parallel(dxpy.describe, projects)
+    project_names = dict(set([(x['id'], x['name']) for x in project_details]))
+
+    project_objects = defaultdict(lambda: defaultdict(list))
+
+    for item in dx_objects:
+        name = project_names[item['project']]
+        project_objects[item['project']]['project_name'] = name
+        project_objects[item['project']]['items'].append(item)
+
+    return project_objects
 
 
 def add_clarity_data_back_to_samples(samples, clarity_data) -> list:
@@ -623,17 +681,14 @@ def write_to_log(log_file, key, job_ids) -> None:
 def read_from_log(log_file) -> dict:
     """
     Reads in JSON log file containing launched job IDs
-
     Parameters
     ----------
     log_file : str
         log file to read job IDs from
-
     Returns
     -------
     dict
         contents of log file
-
     Raises
     ------
     AssertionError

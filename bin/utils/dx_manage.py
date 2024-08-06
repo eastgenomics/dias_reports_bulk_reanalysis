@@ -138,6 +138,26 @@ def unarchive_files(project_files) -> None:
     exit()
 
 
+def download_single_file(dxid, project, path) -> None:
+    """
+    Given a single dx file ID, downloads it with the original filename
+
+    Parameters
+    ----------
+    dxid : str
+        file ID of object to download
+    project : str
+        project containing the file
+    path : str
+        path to download file to
+    """
+    dxpy.bindings.dxfile_functions.download_dxfile(
+        dxid,
+        os.path.join(path, dxpy.describe(dxid).get('name')),
+        project=project
+    )
+
+
 def create_folder(path) -> None:
     """
     Create folder for storing manifests
@@ -671,3 +691,4 @@ def upload_manifest(manifest, path) -> str:
     os.remove(manifest)
 
     return remote_file.get_id()
+

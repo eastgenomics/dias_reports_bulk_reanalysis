@@ -8,7 +8,7 @@ import argparse
 from collections import Counter, defaultdict
 from datetime import datetime
 import json
-from os import path
+from os import makedirs, path
 from time import sleep
 from typing import List
 
@@ -18,6 +18,7 @@ from utils.dx_manage import (
     check_archival_state,
     unarchive_files,
     create_folder,
+    download_single_file,
     get_cnv_call_job,
     get_job_states,
     get_launched_workflow_ids,
@@ -39,6 +40,7 @@ from utils.utils import (
     filter_non_unique_specimen_ids,
     filter_clarity_samples_with_no_reports,
     group_samples_by_project,
+    group_dx_objects_by_project,
     limit_samples,
     parse_config,
     parse_clarity_export,
@@ -541,12 +543,16 @@ def parse_args() -> argparse.Namespace:
     )
 
     download_parser.add_argument(
-        '--job_log', type=str, help=(
+        '--job_log', type=str, required=True, help=(
             'JSON log file output from reanalysis mode from which to download '
             'the outputs of all Dias reports jobs'
         )
     )
-
+    download_parser.add_argument(
+        '--path', type=str, required=True, help=(
+            'path to directory to download reports to'
+        )
+    )
 
     args = parser.parse_args()
 
@@ -612,7 +618,7 @@ def verify_batch_inputs_argument(args):
     return args
 
 
-def download_all_reports(log_file) -> None:
+def download_all_reports(log_file, output_path) -> None:
     """
     Downloads all output xlsx reports, coverage reports, artemis files
     and multiQC reports from the given log file of Dias report jobs.
@@ -624,13 +630,100 @@ def download_all_reports(log_file) -> None:
     ----------
     log_file : str
         log file to read job IDs from
+    output_path : str
+        path of where to download files to
     """
     job_ids = read_from_log(log_file=log_file)
     job_ids = job_ids.get('dias_reports', []) + job_ids.get('eggd_artemis', [])
 
     job_details = call_in_parallel(dxpy.describe, job_ids)
+    project_job_details = group_dx_objects_by_project(job_details)
 
+    for project_id, project_data in project_job_details.items():
+        print(f"Downloading files for {project_data['project_name']}")
 
+        project_path = path.join(output_path, project_data['project_name'])
+        makedirs(project_path, exist_ok=True)
+
+        report_jobs = [
+            x for x in project_data['items'] if x['id'].startswith('analysis-')
+        ]
+        artemis_jobs = [
+            x for x in project_data['items'] if x['id'].startswith('job-')
+        ]
+
+        if not report_jobs:
+            continue
+
+        # get the xlsx report file IDs to find those containing filtered
+        # variants by using the 'included' key in the details metadata
+        xlsx_reports = [
+            x['output'].get('stage-rpt_generate_workbook.xlsx_report', {}).get(
+                '$dnanexus_link') for x in report_jobs
+        ]
+
+        xlsx_details = call_in_parallel(
+            dxpy.describe,
+            xlsx_reports,
+            fields={'details'},
+            default_fields=True
+        )
+
+        # get IDs of reports that have filtered variants
+        xlsx_w_variants = [
+            x['id'] for x in xlsx_details if x['details']['included'] > 0
+        ]
+
+        print(f"{len(xlsx_w_variants)} reports with variants")
+
+        # get original reports workflows for the above reports to be able
+        # to just download the xlsx and coverage reports for those
+        workflows_w_variants = [
+            x for x in report_jobs
+            if x['output']['stage-rpt_generate_workbook.xlsx_report'][
+                '$dnanexus_link'] in xlsx_w_variants
+        ]
+
+        # get the file IDs of our output files to download
+        xlsx_ids = [
+            x['output']['stage-rpt_generate_workbook.xlsx_report'][
+                '$dnanexus_link'] for x in workflows_w_variants
+        ]
+
+        coverage_ids = [
+            x['output']['stage-rpt_athena.report']['$dnanexus_link']
+            for x in workflows_w_variants
+        ]
+
+        artemis_links_ids = [
+            x['output']['url_file']['$dnanexus_link'] for x in artemis_jobs
+        ]
+
+        multiqc_ids = [
+            x['input']['multiqc_report'] for x in artemis_jobs
+            if x['input'].get('multiqc_report', {}).get('$dnanexus_link')
+        ]
+
+        print(
+            f"Downloading {len(xlsx_ids)} xlsx reports, {len(coverage_ids)} "
+            f"coverage reports, {len(artemis_links_ids)} links files and "
+            f"{len(multiqc_ids)} multiQC reports"
+        )
+
+        # download_urls = call_in_parallel(
+        #     dxpy.api.file_download,
+        #     xlsx_ids + coverage_ids + artemis_links_ids + multiqc_ids,
+        #     input_params={'project': project_id, 'preauthenticated': True}
+        # )
+
+        call_in_parallel(
+            download_single_file,
+            xlsx_ids + coverage_ids + artemis_links_ids + multiqc_ids,
+            project=project_id,
+            path=project_path
+        )
+
+        exit()
 
 
 def main():
@@ -639,6 +732,10 @@ def main():
     if args.mode == 'download':
         # call method to download files
         print('download')
+        download_all_reports(
+            log_file=args.job_log,
+            output_path=args.path
+        )
 
         exit()
 
