@@ -4,7 +4,6 @@ General utility functions
 from collections import defaultdict
 import concurrent
 from datetime import datetime
-from itertools import groupby
 import json
 from os import path
 import re
