@@ -271,6 +271,43 @@ class TestUnarchiveFiles(unittest.TestCase):
         ), "check state command not as expected"
 
 
+@patch('bin.utils.dx_manage.dxpy.describe')
+@patch('bin.utils.dx_manage.dxpy.bindings.dxfile_functions.download_dxfile')
+class TestDownloadSingleFile(unittest.TestCase):
+    """
+    Tests for dx_manage.download_single_file
+
+    Function makes call to download given file into the given path
+    with the original name of the file in DNAnexus
+    """
+    def test_file_path_correctly_passed_to_download(
+        self, mock_download, mock_describe
+    ):
+        """
+        Test that the filename and path to download file to is as expected
+        """
+        mock_describe.return_value = {
+            'id': 'file-xxx',
+            'name': 'sample1.xlsx'
+        }
+
+        dx_manage.download_single_file(
+            dxid='file-xxx',
+            project='project-xxx',
+            path='local_dir/sub_dir'
+        )
+
+        with self.subTest('correct download file path'):
+            # path is 2nd positional arg to download_dxfile
+            given_path = mock_download.call_args[0][1]
+
+            assert given_path == 'local_dir/sub_dir/sample1.xlsx'
+
+        with self.subTest('dxpy.describe called'):
+            # test we actually call dxpy.describe to get the name
+            assert mock_describe.call_count == 1
+
+
 class TestCreateFolder(unittest.TestCase):
     """
     Tests for dx_manage.create_folder
