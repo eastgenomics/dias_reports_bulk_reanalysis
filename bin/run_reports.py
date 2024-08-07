@@ -756,9 +756,13 @@ def main():
         unarchive=args.unarchive
     )
 
+    total_samples = sum([
+        len(x.get('samples', [])) for x in sample_data.values()
+    ])
+
     print(
-        f"\nConfirm running reports for all samples in "
-        f"{args.testing if args.testing else 'original 002 projects'}"
+        f"\nConfirm running reports for all {total_samples} samples in "
+        f"{args.test_project if args.test_project else 'original 002 projects'}"
     )
     while True:
         confirm = input('Run jobs? ')
