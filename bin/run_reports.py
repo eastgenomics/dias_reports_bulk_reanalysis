@@ -8,15 +8,17 @@ import argparse
 from collections import Counter, defaultdict
 from datetime import datetime
 import json
-from os import path
+from os import makedirs, path
 from time import sleep
 from typing import List
 
+import dxpy
 
 from utils.dx_manage import (
     check_archival_state,
     unarchive_files,
     create_folder,
+    download_single_file,
     get_cnv_call_job,
     get_job_states,
     get_launched_workflow_ids,
@@ -34,15 +36,18 @@ from utils.dx_manage import (
 
 from utils.utils import (
     add_clarity_data_back_to_samples,
+    call_in_parallel,
     filter_non_unique_specimen_ids,
     filter_clarity_samples_with_no_reports,
     group_samples_by_project,
+    group_dx_objects_by_project,
     limit_samples,
     parse_config,
     parse_clarity_export,
     parse_sample_identifiers,
     validate_test_codes,
-    write_to_log
+    write_to_log,
+    read_from_log
 )
 
 
@@ -433,10 +438,20 @@ def parse_args() -> argparse.Namespace:
         parsed arguments
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument(
+    subparsers = parser.add_subparsers(
+        help='mode to run', dest='mode', required=True
+    )
+
+    reanalysis_parser = subparsers.add_parser(
+        'reanalysis',
+        help='mode to perform reanalysis from Clarity samples'
+    )
+
+    reanalysis_parser.add_argument(
         "-a", "--assay", type=str, choices=["CEN", "TWE"], required=True
     )
-    clarity = parser.add_mutually_exclusive_group(required=True)
+
+    clarity = reanalysis_parser.add_mutually_exclusive_group(required=True)
     clarity.add_argument(
         "--clarity_export", type=str, help=(
             'export from Clarity to parse samples from if not connecting'
@@ -448,7 +463,7 @@ def parse_args() -> argparse.Namespace:
             "analysis and their respective test codes"
         )
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--config",
         type=str,
         help=(
@@ -456,7 +471,7 @@ def parse_args() -> argparse.Namespace:
             "will select latest from 001_Reference"
         ),
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--batch_inputs",
         type=str,
         help=(
@@ -464,7 +479,7 @@ def parse_args() -> argparse.Namespace:
             "e.g. '{\"unarchive\": True}'"
         ),
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--limit",
         default=None,
         type=int,
@@ -473,7 +488,7 @@ def parse_args() -> argparse.Namespace:
             "specified this will default to being the oldest n samples"
         )
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--start_date",
         default=None,
         type=str,
@@ -482,7 +497,7 @@ def parse_args() -> argparse.Namespace:
             "to be specified as YYMMDD"
         )
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--end_date",
         default=None,
         type=str,
@@ -491,13 +506,13 @@ def parse_args() -> argparse.Namespace:
             "to be specified as YYMMDD"
         )
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--unarchive",
         default=None,
         action="store_true",
         help="controls if to start unarchiving of any required files"
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--testing",
         action='store_true',
         default=False,
@@ -506,13 +521,13 @@ def parse_args() -> argparse.Namespace:
             "one 003 project"
         ),
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--terminate",
         action='store_true',
         default=False,
         help="Controls if to terminate all analysis jobs dias batch launches",
     )
-    parser.add_argument(
+    reanalysis_parser.add_argument(
         "--monitor",
         type=bool,
         default=True,
@@ -522,10 +537,28 @@ def parse_args() -> argparse.Namespace:
         ),
     )
 
+    download_parser = subparsers.add_parser(
+        'download',
+        help='mode to download outputs from a log file of job IDs'
+    )
+
+    download_parser.add_argument(
+        '--job_log', type=str, required=True, help=(
+            'JSON log file output from reanalysis mode from which to download '
+            'the outputs of all Dias reports jobs'
+        )
+    )
+    download_parser.add_argument(
+        '--path', type=str, required=True, help=(
+            'path to directory to download reports to'
+        )
+    )
+
     args = parser.parse_args()
 
-    if args.batch_inputs:
-        args = verify_batch_inputs_argument(args)
+    if args.mode == 'reanalysis':
+        if args.batch_inputs:
+            args = verify_batch_inputs_argument(args)
 
     input_str = '\n\t'.join(f"{k} : {v}" for k, v in args.__dict__.items())
     print(f"Specified arguments:\n\t{input_str}\n")
@@ -585,8 +618,115 @@ def verify_batch_inputs_argument(args):
     return args
 
 
+def download_all_reports(log_file, output_path) -> None:
+    """
+    Downloads all output xlsx reports, coverage reports, artemis files
+    and multiQC reports from the given log file of Dias report jobs.
+
+    This will be downloaded to the directory structure of a single
+    folder per project the jobs were run in.
+
+    Parameters
+    ----------
+    log_file : str
+        log file to read job IDs from
+    output_path : str
+        path of where to download files to
+    """
+    job_ids = read_from_log(log_file=log_file)
+    job_ids = job_ids.get('dias_reports', []) + job_ids.get('eggd_artemis', [])
+
+    job_details = call_in_parallel(dxpy.describe, job_ids)
+    project_job_details = group_dx_objects_by_project(job_details)
+
+    for project_id, project_data in project_job_details.items():
+        print(f"Downloading files for {project_data['project_name']}")
+
+        # create local run dir for downloading to
+        project_path = path.join(output_path, project_data['project_name'])
+        makedirs(project_path, exist_ok=True)
+
+        report_jobs = [
+            x for x in project_data['items'] if x['id'].startswith('analysis-')
+        ]
+        artemis_jobs = [
+            x for x in project_data['items'] if x['id'].startswith('job-')
+        ]
+
+        # get the xlsx report file IDs to find those containing filtered
+        # variants by using the 'included' key in the details metadata
+        xlsx_reports = [
+            x['output'].get('stage-rpt_generate_workbook.xlsx_report', {}).get(
+                '$dnanexus_link') for x in report_jobs
+        ]
+
+        xlsx_details = call_in_parallel(
+            dxpy.describe,
+            xlsx_reports,
+            fields={'details'},
+            default_fields=True
+        )
+
+        # get IDs of reports that have filtered variants
+        xlsx_w_variants = [
+            x['id'] for x in xlsx_details if x['details']['included'] > 0
+        ]
+
+        print(f"{len(xlsx_w_variants)} reports with variants")
+
+        # get original reports workflows for the above reports to be able
+        # to just download the xlsx and coverage reports for those
+        workflows_w_variants = [
+            x for x in report_jobs
+            if x['output']['stage-rpt_generate_workbook.xlsx_report'][
+                '$dnanexus_link'] in xlsx_w_variants
+        ]
+
+        # get the file IDs of our output files to download
+        xlsx_ids = [
+            x['output']['stage-rpt_generate_workbook.xlsx_report'][
+                '$dnanexus_link'] for x in workflows_w_variants
+        ]
+
+        coverage_ids = [
+            x['output']['stage-rpt_athena.report']['$dnanexus_link']
+            for x in workflows_w_variants
+        ]
+
+        artemis_links_ids = [
+            x['output']['url_file']['$dnanexus_link'] for x in artemis_jobs
+        ]
+
+        multiqc_ids = [
+            x['input']['multiqc_report'] for x in artemis_jobs
+            if x['input'].get('multiqc_report', {}).get('$dnanexus_link')
+        ]
+
+        print(
+            f"Downloading {len(xlsx_ids)} xlsx reports, {len(coverage_ids)} "
+            f"coverage reports, {len(artemis_links_ids)} links files and "
+            f"{len(multiqc_ids)} multiQC reports"
+        )
+
+        call_in_parallel(
+            download_single_file,
+            xlsx_ids + coverage_ids + artemis_links_ids + multiqc_ids,
+            project=project_id,
+            path=project_path
+        )
+
+        print(f"Completed downloading files to {project_path}")
+
+
 def main():
     args = parse_args()
+
+    if args.mode == 'download':
+        download_all_reports(
+            log_file=args.job_log,
+            output_path=args.path
+        )
+        exit()
 
     if args.clarity_connect:
         pass

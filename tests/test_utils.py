@@ -4,6 +4,7 @@ import json
 import os
 import unittest
 from unittest.mock import patch
+from uuid import uuid4
 
 import pandas as pd
 import pytest
@@ -424,6 +425,95 @@ class TestGroupSamplesByProject(unittest.TestCase):
 
         assert returned_grouping == expected_grouping, (
             'Sample data incorrectly grouped by project'
+        )
+
+
+@patch('bin.utils.utils.call_in_parallel')
+class TestGroupDxObjectsByProject(unittest.TestCase):
+    """
+    Tests for utils.group_dx_objects_by_project
+
+    Function takes a list of DXObjects (i.e. files) and split them to a
+    dict by their project
+    """
+    # example dx objects split between 2 projects
+    dx_objects = [
+        {
+            'id': 'file-xxx',
+            'project': 'project-aaa'
+        },
+        {
+            'id': 'file-yyy',
+            'project': 'project-aaa'
+        },
+        {
+            'id': 'file-zzz',
+            'project': 'project-bbb'
+        }
+    ]
+
+    def test_expected_structure_returned(self, mock_parallel_describe):
+        """
+        Test that the expected dict structure is returned
+        """
+        mock_parallel_describe.return_value = [
+            {
+                'id': 'project-aaa',
+                'name': 'Project-A'
+            },
+            {
+                'id': 'project-bbb',
+                'name': 'Project-B'
+            }
+        ]
+
+        returned_objects = utils.group_dx_objects_by_project(self.dx_objects)
+
+        expected_structure = {
+            'project-aaa': {
+                'project_name': 'Project-A',
+                'items': [
+                    {'id': 'file-xxx', 'project': 'project-aaa'},
+                    {'id': 'file-yyy', 'project': 'project-aaa'}
+                ]
+            },
+            'project-bbb': {
+                'project_name': 'Project-B',
+                'items': [
+                    {'id': 'file-zzz', 'project': 'project-bbb'}
+                ]
+            }
+        }
+
+        assert returned_objects == expected_structure, (
+            'returned structure not as expected'
+        )
+
+
+    def test_correct_projects_provided_to_describe(self, mock_parallel_describe):
+        """
+        Test that the unique list of project IDs correctly passed to
+        utils.call_in_parallel (that in turn calls dxpy.describe)
+        """
+        mock_parallel_describe.return_value = [
+            {
+                'id': 'project-aaa',
+                'name': 'Project-A'
+            },
+            {
+                'id': 'project-bbb',
+                'name': 'Project-B'
+            }
+        ]
+
+        utils.group_dx_objects_by_project(self.dx_objects)
+
+        expected_args = ['project-aaa', 'project-bbb']
+
+        assert sorted(
+            mock_parallel_describe.call_args[0][1]
+        ) == expected_args, (
+            'unique list of project IDs not provided as expected'
         )
 
 
@@ -1355,4 +1445,40 @@ class TestWriteToLog(unittest.TestCase):
 
         assert log_contents == expected_contents, (
             'new log file does not contain the expected contents'
+        )
+
+
+class TestReadFromLog(unittest.TestCase):
+    """
+    Tests for utils.read_from_log
+
+    Simple function that reads in a JSON log file and returns a dict
+    of the contents
+    """
+    def test_assertion_error_raised_on_non_json_file(self):
+        """
+        Test that an AssertionError is correctly raised on a non JSON
+        file being provided
+        """
+        with pytest.raises(
+            AssertionError,
+            match="JSON file not provided to read from"
+        ):
+            utils.read_from_log('myFile.txt')
+
+
+    def test_json_correctly_read(self):
+        """
+        Test that JSON file correctly read in and contents returned
+        """
+        tmp_file = f"{uuid4().hex}.json"
+        with open(tmp_file, 'w') as fh:
+            json.dump({'foo': 'bar'}, fh)
+
+        returned_contents = utils.read_from_log(tmp_file)
+
+        os.remove(tmp_file)
+
+        assert returned_contents == {'foo': 'bar'}, (
+            'contents of log file not as expected'
         )

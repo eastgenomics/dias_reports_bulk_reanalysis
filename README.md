@@ -12,17 +12,29 @@ All dependent files for each selected sample to run reports for are then checked
 
 Once everything is in a state that reports may be run, the script may be run to begin launching eggd_dias_batch jobs for each sequencing runs worth of samples. This will either be in the original 002 projects (if `--testing=False`) or in a given 003 project (if `--testing=True`).
 
-Once jobs are launched, the state of these jobs will be monitored and printed to stdout if `--monitor` is specified.
+Once jobs are launched, the state of these jobs will be monitored and printed to stdout if `--monitor` is specified. Job IDs of launched dias_batch, dias reports and eggd_artemis will be written to a JSON log file in the current working directory. This may then be used as input to the download mode to download all output reports.
+
+### Downloading outputs
+
+Once reanalysis has been run and all jobs completed, the output reports may be downloaded by running in download mode, and providing the JSON log file with launched job IDs in as input. This will group up all launched jobs by project, and download the xlsx reports, coverage reports, eggd_artemis file and input multiQC file (if available) to run specific directories. Any reports with no variants in the include tab will be skipped and not downloaded.
+
 
 ### Usage
 
+- To run reanalysis:
 ```
-python3 bin/run_reports.py --assay CEN --clarity_export <export.xlsx>
+python3 bin/run_reports.py reanalysis --assay CEN --clarity_export <export.xlsx>
+```
+
+To download output reports:
+```
+python3 bin/run_reports.py download --job_log launched_jobs_240801_log.json --path output/
 ```
 
 
 ### Inputs
 
+Reanalysis inputs:
 * `-a` / `--assay`: assay for which to run reports for
 * `--clarity_export`: path to file containing export from Clarity
 * `--config` (optional): file ID of assay config file to use for eggd_dias_batch, if not specified will use latest in 001_Reference
@@ -34,6 +46,12 @@ python3 bin/run_reports.py --assay CEN --clarity_export <export.xlsx>
 * `--testing` (optional): Controls where dias batch is run, when testing launch all in one 003 project
 * `--terminate` (optional): Controls if to terminate all analysis jobs dias batch launches
 * `--monitor` (optional): Controls if to monitor and report on state of launched dias batch jobs
+
+
+Download inputs:
+* `--job_log`: json log file output from running reanalysis
+* `--path`: parent directory in which to download sub directories per run of output reports
+
 
 ## Logging
 

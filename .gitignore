@@ -6,3 +6,5 @@
 *.xlsx
 .~lock.*
 .coverage
+output/*
+launched_jobs*.json
