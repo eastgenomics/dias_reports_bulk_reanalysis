@@ -4,6 +4,7 @@ import json
 import os
 import unittest
 from unittest.mock import patch
+from uuid import uuid4
 
 import pandas as pd
 import pytest
@@ -1355,4 +1356,40 @@ class TestWriteToLog(unittest.TestCase):
 
         assert log_contents == expected_contents, (
             'new log file does not contain the expected contents'
+        )
+
+
+class TestReadFromLog(unittest.TestCase):
+    """
+    Tests for utils.read_from_log
+
+    Simple function that reads in a JSON log file and returns a dict
+    of the contents
+    """
+    def test_assertion_error_raised_on_non_json_file(self):
+        """
+        Test that an AssertionError is correctly raised on a non JSON
+        file being provided
+        """
+        with pytest.raises(
+            AssertionError,
+            match="JSON file not provided to read from"
+        ):
+            utils.read_from_log('myFile.txt')
+
+
+    def test_json_correctly_read(self):
+        """
+        Test that JSON file correctly read in and contents returned
+        """
+        tmp_file = f"{uuid4().hex}.json"
+        with open(tmp_file, 'w') as fh:
+            json.dump({'foo': 'bar'}, fh)
+
+        returned_contents = utils.read_from_log(tmp_file)
+
+        os.remove(tmp_file)
+
+        assert returned_contents == {'foo': 'bar'}, (
+            'contents of log file not as expected'
         )
