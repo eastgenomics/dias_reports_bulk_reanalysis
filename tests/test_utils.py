@@ -428,6 +428,95 @@ class TestGroupSamplesByProject(unittest.TestCase):
         )
 
 
+@patch('bin.utils.utils.call_in_parallel')
+class TestGroupDxObjectsByProject(unittest.TestCase):
+    """
+    Tests for utils.group_dx_objects_by_project
+
+    Function takes a list of DXObjects (i.e. files) and split them to a
+    dict by their project
+    """
+    # example dx objects split between 2 projects
+    dx_objects = [
+        {
+            'id': 'file-xxx',
+            'project': 'project-aaa'
+        },
+        {
+            'id': 'file-yyy',
+            'project': 'project-aaa'
+        },
+        {
+            'id': 'file-zzz',
+            'project': 'project-bbb'
+        }
+    ]
+
+    def test_expected_structure_returned(self, mock_parallel_describe):
+        """
+        Test that the expected dic structure is returned
+        """
+        mock_parallel_describe.return_value = [
+            {
+                'id': 'project-aaa',
+                'name': 'Project-A'
+            },
+            {
+                'id': 'project-bbb',
+                'name': 'Project-B'
+            }
+        ]
+
+        returned_objects = utils.group_dx_objects_by_project(self.dx_objects)
+
+        expected_structure = {
+            'project-aaa': {
+                'project_name': 'Project-A',
+                'items': [
+                    {'id': 'file-xxx', 'project': 'project-aaa'},
+                    {'id': 'file-yyy', 'project': 'project-aaa'}
+                ]
+            },
+            'project-bbb': {
+                'project_name': 'Project-B',
+                'items': [
+                    {'id': 'file-zzz', 'project': 'project-bbb'}
+                ]
+            }
+        }
+
+        assert returned_objects == expected_structure, (
+            'returned structure not as expected'
+        )
+
+
+    def test_correct_projects_provided_to_describe(self, mock_parallel_describe):
+        """
+        Test that the unique list of project IDs correctly passed to
+        utils.call_in_parallel (that in turn calls dxpy.describe)
+        """
+        mock_parallel_describe.return_value = [
+            {
+                'id': 'project-aaa',
+                'name': 'Project-A'
+            },
+            {
+                'id': 'project-bbb',
+                'name': 'Project-B'
+            }
+        ]
+
+        utils.group_dx_objects_by_project(self.dx_objects)
+
+        expected_args = ['project-aaa', 'project-bbb']
+
+        assert sorted(
+            mock_parallel_describe.call_args[0][1]
+        ) == expected_args, (
+            'unique list of project IDs not provided as expected'
+        )
+
+
 class TestAddClarityDataBackToSamples(unittest.TestCase):
     """
     Tests for utils.add_clarity_data_back_to_samples.
