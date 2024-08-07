@@ -642,6 +642,7 @@ def download_all_reports(log_file, output_path) -> None:
     for project_id, project_data in project_job_details.items():
         print(f"Downloading files for {project_data['project_name']}")
 
+        # create local run dir for downloading to
         project_path = path.join(output_path, project_data['project_name'])
         makedirs(project_path, exist_ok=True)
 
