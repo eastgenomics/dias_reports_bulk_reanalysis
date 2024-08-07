@@ -138,7 +138,7 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
     if invalid_sample_tests:
         # write log of the samples with invalid tests
         invalid_test_log = (
-            f"{datetime.datetime.today().strftime('%y%m%d_%H%M')}"
+            f"{datetime.today().strftime('%y%m%d_%H%M')}"
             "_invalid_test_codes.json"
         )
         with open(invalid_test_log, 'w') as fh:
@@ -225,7 +225,7 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
             if issues.get('dias_single'):
                 print(
                     "\tProject has more than one Dias single output dir and "
-                    f"is not specified in config: {issues.get('dais_single')}"
+                    f"is not specified in config: {issues.get('dias_single')}"
                 )
 
             if issues.get('unarchiving'):
