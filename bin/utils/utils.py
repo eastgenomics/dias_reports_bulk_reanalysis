@@ -636,8 +636,8 @@ def validate_test_codes(all_sample_data, genepanels) -> None:
             f"{k} : {v}" for k, v in invalid.items()
         )
         print(
-            "WARNING: one or more samples with invalid test code(s)\n"
-            "These sample-tests will be excluded for reanalysis.\n\t"
+            "\nWARNING: one or more samples with invalid test code(s)\n"
+            "These sample-tests will be excluded for reanalysis:\n\n\t"
             f"{printable_invalid}"
         )
     else:
