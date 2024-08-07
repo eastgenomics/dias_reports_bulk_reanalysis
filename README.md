@@ -78,6 +78,8 @@ The log file is structured as follows:
 }
 ```
 
+For any samples with invalid test code(s), these will print a warning to stdout during running and also be written to a JSON log file to review after (named as `{yymmdd_hhmm}_invalid_test_codes.json`).
+
 ### Example useful commands to query the log file:
 
 * check the state of dias_batch jobs:
