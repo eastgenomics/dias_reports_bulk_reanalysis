@@ -51,9 +51,6 @@ from utils.utils import (
 )
 
 
-TEST_PROJECT = "project-Ggvgj6j45jXv43B84Vfzvgv6"
-
-
 def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive):
     """
     Searches all 002 projects against given sample list to find
@@ -133,7 +130,7 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
     # check all test codes from Clarity valid against latest genepanels
     latest_genepanels = get_latest_genepanels_file()
     genepanels = read_genepanels_file(file_details=latest_genepanels)
-    validate_test_codes(
+    samples, invalid_sample_tests = validate_test_codes(
         all_sample_data=samples,
         genepanels=genepanels
     )
@@ -321,6 +318,12 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
 
     for project, project_data in all_sample_data.items():
 
+        if args.test_project:
+            # when testing run everything in one 003 project
+            batch_project = args.test_project
+        else:
+            batch_project = project["id"]
+
         manifest = write_manifest(
             sample_data=project_data['samples'],
             project_name=project_data['project_name'],
@@ -328,17 +331,13 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
         )
 
         manifest_id = upload_manifest(
-            manifest=manifest, path=f"/manifests/{now}"
+            manifest=manifest,
+            project=batch_project,
+            path=f"/manifests/{now}"
         )
 
         # name for naming dias batch job
         name = f"eggd_dias_batch_{project_data['project_name']}"
-
-        if args.testing:
-            # when testing run everything in one 003 project
-            batch_project = TEST_PROJECT
-        else:
-            batch_project = project["id"]
 
         batch_id = run_batch(
             project=batch_project,
@@ -350,6 +349,11 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
             batch_inputs=args.batch_inputs,
             assay=args.assay,
             terminate=args.terminate
+        )
+
+        print(
+            f"Launched dias batch job in {batch_project} ({batch_id}) "
+            f"with manifest {manifest}"
         )
 
         launched_jobs.append(batch_id)
@@ -513,12 +517,13 @@ def parse_args() -> argparse.Namespace:
         help="controls if to start unarchiving of any required files"
     )
     reanalysis_parser.add_argument(
-        "--testing",
-        action='store_true',
-        default=False,
+        "--test_project",
+        required=True,
+        type=str,
         help=(
-            "Controls where dias batch is run, when testing launch all in "
-            "one 003 project"
+            "DNAnexus project to run all batch jobs and analysis in for "
+            "testing, if not specified will launch jobs in original 002 "
+            "projects"
         ),
     )
     reanalysis_parser.add_argument(
@@ -744,7 +749,7 @@ def main():
 
     print(
         f"\nConfirm running reports for all samples in "
-        f"{TEST_PROJECT if args.testing else 'original 002 projects'}"
+        f"{args.testing if args.testing else 'original 002 projects'}"
     )
     while True:
         confirm = input('Run jobs? ')
