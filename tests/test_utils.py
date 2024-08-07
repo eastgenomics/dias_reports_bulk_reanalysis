@@ -454,7 +454,7 @@ class TestGroupDxObjectsByProject(unittest.TestCase):
 
     def test_expected_structure_returned(self, mock_parallel_describe):
         """
-        Test that the expected dic structure is returned
+        Test that the expected dict structure is returned
         """
         mock_parallel_describe.return_value = [
             {
