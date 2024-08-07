@@ -135,6 +135,15 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
         genepanels=genepanels
     )
 
+    if invalid_sample_tests:
+        # write log of the samples with invalid tests
+        invalid_test_log = (
+            f"{datetime.datetime.today().strftime('%y%m%d_%H%M')}"
+            "_invalid_test_codes.json"
+        )
+        with open(invalid_test_log, 'w') as fh:
+            json.dump(invalid_sample_tests, fh)
+
     project_samples = group_samples_by_project(
         samples=samples,
         projects=projects
