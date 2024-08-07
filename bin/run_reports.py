@@ -652,9 +652,6 @@ def download_all_reports(log_file, output_path) -> None:
             x for x in project_data['items'] if x['id'].startswith('job-')
         ]
 
-        if not report_jobs:
-            continue
-
         # get the xlsx report file IDs to find those containing filtered
         # variants by using the 'included' key in the details metadata
         xlsx_reports = [
@@ -710,12 +707,6 @@ def download_all_reports(log_file, output_path) -> None:
             f"{len(multiqc_ids)} multiQC reports"
         )
 
-        # download_urls = call_in_parallel(
-        #     dxpy.api.file_download,
-        #     xlsx_ids + coverage_ids + artemis_links_ids + multiqc_ids,
-        #     input_params={'project': project_id, 'preauthenticated': True}
-        # )
-
         call_in_parallel(
             download_single_file,
             xlsx_ids + coverage_ids + artemis_links_ids + multiqc_ids,
@@ -723,22 +714,18 @@ def download_all_reports(log_file, output_path) -> None:
             path=project_path
         )
 
-        exit()
+        print(f"Completed downloading files to {project_path}")
 
 
 def main():
     args = parse_args()
 
     if args.mode == 'download':
-        # call method to download files
-        print('download')
         download_all_reports(
             log_file=args.job_log,
             output_path=args.path
         )
-
         exit()
-
 
     if args.clarity_connect:
         pass
