@@ -14,6 +14,11 @@ Once everything is in a state that reports may be run, the script may be run to 
 
 Once jobs are launched, the state of these jobs will be monitored and printed to stdout if `--monitor` is specified. Job IDs of launched dias_batch, dias reports and eggd_artemis will be written to a JSON log file in the current working directory. This may then be used as input to the download mode to download all output reports.
 
+### Downloading outputs
+
+Once reanalysis has been run and all jobs completed, the output reports may be downloading by running in download mode, and providing the JSON log file with launched job IDs in as input. This will group up all launched jobs by project, and download the xlsx reports, coverage reports, eggd_artemis file and input multiQC file (if available) to run specific directories. Any reports with no variants in the include tab will be skipped and not downloaded.
+
+
 ### Usage
 
 - To run reanalysis:
