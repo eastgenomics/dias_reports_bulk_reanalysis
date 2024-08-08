@@ -16,6 +16,7 @@ import dxpy
 
 from utils.dx_manage import (
     check_archival_state,
+    check_job_state,
     unarchive_files,
     create_folder,
     download_single_file,
@@ -635,7 +636,11 @@ def verify_batch_inputs_argument(args):
 def download_all_reports(log_file, output_path) -> None:
     """
     Downloads all output xlsx reports, coverage reports, artemis files
-    and multiQC reports from the given log file of Dias report jobs.
+    and multiQC reports from the given log file of dias batch jobs.
+
+    We're going to query the launched jobs of all dias batch jobs instead
+    of trusting what was added to the local log file in case of monitoring
+    not being specified.
 
     This will be downloaded to the directory structure of a single
     folder per project the jobs were run in.
@@ -648,9 +653,33 @@ def download_all_reports(log_file, output_path) -> None:
         path of where to download files to
     """
     job_ids = read_from_log(log_file=log_file)
-    job_ids = job_ids.get('dias_reports', []) + job_ids.get('eggd_artemis', [])
+    batch_job_ids = job_ids.get('dias_batch')
 
-    job_details = call_in_parallel(dxpy.describe, job_ids)
+    # get the launched jobs of all logged batch jobs
+    batch_details = call_in_parallel(dxpy.describe, batch_job_ids)
+    launched_job_ids = [
+        x['output'].get('launched_jobs', '').split(',') for x in batch_details
+    ]
+    launched_job_ids = [x for y in launched_job_ids for x in y]
+
+    print(
+        f"{len(launched_job_ids)} jobs from {len(batch_job_ids)} dias batch "
+        f"jobs to download output reports from...\n"
+    )
+
+    job_details = call_in_parallel(dxpy.describe, launched_job_ids)
+
+    # check the state of all launched jobs before downloading
+    all_job_states = check_job_state(job_details)
+
+    if all_job_states['in_progress']:
+        # one or more jobs not complete => don't try download
+        print(
+            f"WARNING: {len(all_job_states['in_progress'])} jobs are still in "
+            f"progress. Will not download any reports until these complete."
+        )
+        exit()
+
     project_job_details = group_dx_objects_by_project(job_details)
 
     for project_id, project_data in project_job_details.items():
