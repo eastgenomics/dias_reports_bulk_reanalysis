@@ -682,6 +682,12 @@ class TestLimitSamples(unittest.TestCase):
         }
     ]
 
+    @pytest.fixture(autouse=True)
+    def capsys(self, capsys):
+        """Capture stdout to provide it to tests"""
+        self.capsys = capsys
+
+
     def test_integer_limit_works(self):
         """
         Test that limit parameter works as expected, this should take
@@ -857,6 +863,30 @@ class TestLimitSamples(unittest.TestCase):
         assert limited_samples == expected_samples, (
             'incorrect samples retained with integer and date range limits'
         )
+
+
+    def test_no_samples_in_range_zero_exit_code(self):
+        """
+        Test that when we have no Clarity samples in the provided dates
+        that the function cleanly exits with a message to stdout and a
+        zero exit code
+        """
+        with pytest.raises(SystemExit) as zero_exit:
+            utils.limit_samples(
+                samples=self.sample_data,
+                start='290301',
+                end='291201'
+            )
+
+        with self.subTest('correct exit code'):
+            assert zero_exit.value.code == 0
+
+        with self.subTest('correct stdout'):
+            expected_stdout = (
+                'WARNING: no samples present in Clarity from the provided '
+                'date range. Exiting now.'
+            )
+            assert expected_stdout in self.capsys.readouterr().out
 
 
 class TestParseConfig(unittest.TestCase):

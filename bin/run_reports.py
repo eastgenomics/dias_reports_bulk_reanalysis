@@ -759,7 +759,8 @@ def main():
     ])
 
     print(
-        f"\nConfirm running reports for all {total_samples} samples in "
+        f"\nConfirm running reports for all {total_samples} samples with "
+        f"{len(sample_data.keys())} dias batch jobs in "
         f"{args.test_project if args.test_project else 'original 002 projects'}"
     )
     while True:
