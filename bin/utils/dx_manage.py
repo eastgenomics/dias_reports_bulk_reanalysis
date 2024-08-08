@@ -126,7 +126,9 @@ def check_job_state(jobs) -> dict:
     )
 
     if all_job_states['failed']:
-        failed_job_projects = set([x['project'] for x in all_job_states['failed']])
+        failed_job_projects = sorted(set([
+            x['project'] for x in all_job_states['failed']
+        ]))
 
         base_url = (
             "https://platform.dnanexus.com/panx/projects/"
@@ -139,10 +141,10 @@ def check_job_state(jobs) -> dict:
         ])
 
         print(
-            f"\nWARNING: one or more jobs in a failed / terminated state.\n\n"
-            f"Projects with failed jobs:\n\t{failed_urls}"
+            f"\nWARNING: {len(all_job_states['failed'])} jobs in a failed / "
+            f"terminated state.\n\nProjects with failed jobs:\n\t{failed_urls}"
         )
-  $
+
     return all_job_states
 
 
