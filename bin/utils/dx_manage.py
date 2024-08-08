@@ -10,6 +10,7 @@ from typing import List, Union
 
 import dxpy
 import pandas as pd
+from tqdm import tqdm
 
 from .utils import call_in_parallel
 
@@ -389,7 +390,7 @@ def get_xlsx_reports(all_samples, projects) -> list:
 
     all_reports = []
 
-    for project in projects:
+    for project in tqdm(projects, ncols=100):
         project_reports = []
 
         project_reports = find_in_parallel(
@@ -399,8 +400,6 @@ def get_xlsx_reports(all_samples, projects) -> list:
             suffix='.*xlsx'
         )
         all_reports.extend(project_reports)
-
-        print(f"Found {len(project_reports)} reports in project {project}")
 
     # filter out any xlsx files found that look to also have a run ID
     # in the name => output from eggd_artemis for a single sample
