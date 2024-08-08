@@ -63,7 +63,7 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
         "project-xxx": {
             "project_name": "002_240401_A01295_0334_XXYNSHDBDR",
             "cnv_call_job_id": "job-xxx",
-            "dias_single_path": "project-xxx:/output/CEN_240401_1105",
+            "dias_single": "project-xxx:/output/CEN_240401_1105",
             "samples": [
                 {
                     "sample": "123456-23251R0047",
@@ -355,7 +355,7 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
             project=batch_project,
             batch_app_id=batch_app_id,
             cnv_job=project_data['cnv_call_job_id'],
-            single_path=project_data['dias_single_path'],
+            single_path=project_data['dias_single'],
             manifest=manifest_id,
             name=name,
             batch_inputs=args.batch_inputs,
