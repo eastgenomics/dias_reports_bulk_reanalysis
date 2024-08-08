@@ -320,7 +320,6 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
     """
     now = datetime.now().strftime("%y%m%d_%H%M")
 
-    create_folder(path=f"/manifests/{now}")
     batch_app_id = get_latest_dias_batch_app()
 
     launched_jobs = []
@@ -336,6 +335,11 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
             sample_data=project_data['samples'],
             project_name=project_data['project_name'],
             now=now
+        )
+
+        create_folder(
+            project=batch_project,
+            path=f"/manifests/{now}"
         )
 
         manifest_id = upload_manifest(

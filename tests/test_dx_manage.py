@@ -321,7 +321,7 @@ class TestCreateFolder(unittest.TestCase):
         """
         Test that dxpy.bindings.dxproject.DXProject.new_folder is called
         """
-        dx_manage.create_folder(path='/test_dir')
+        dx_manage.create_folder(project='project-xxx', path='/test_dir')
 
         with self.subTest('DXProject.new_folder called'):
             assert mock_project.return_value.new_folder.call_count == 1

@@ -158,16 +158,20 @@ def download_single_file(dxid, project, path) -> None:
     )
 
 
-def create_folder(path) -> None:
+def create_folder(project, path) -> None:
     """
     Create folder for storing manifests
 
     Parameters
     ----------
+    project : str
+        project to create folder in
     path : str
         folder to create
     """
-    dxpy.bindings.dxproject.DXProject().new_folder(folder=path, parents=True)
+    dxpy.bindings.dxproject.DXProject(dxid=project).new_folder(
+        folder=path, parents=True
+    )
 
 
 def find_in_parallel(project, items, prefix='', suffix='') -> list:
