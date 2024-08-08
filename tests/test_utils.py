@@ -883,7 +883,7 @@ class TestLimitSamples(unittest.TestCase):
 
         with self.subTest('correct stdout'):
             expected_stdout = (
-                'WARNING - no samples present in Clarity from the provided '
+                'WARNING: no samples present in Clarity from the provided '
                 'date range. Exiting now.'
             )
             assert expected_stdout in self.capsys.readouterr().out
