@@ -1277,56 +1277,76 @@ class TestValidateTestCodes(unittest.TestCase):
         self.capsys = capsys
 
 
-    def test_error_not_raised_on_valid_codes(self):
+    def test_correct_output_on_valid_codes(self):
         """
         If all test codes are valid the function should just print
-        to stdout and not raise an error
+        `All sample test codes valid!` to stdout and return the same
+        data structure as input
         """
-        utils.validate_test_codes(
+        valid, _ = utils.validate_test_codes(
             all_sample_data=self.sample_data, genepanels=self.genepanels
         )
 
-        expected_stdout = 'All sample test codes valid!'
+        with self.subTest('stdout correct'):
+            expected_stdout = 'All sample test codes valid!'
+            assert expected_stdout in self.capsys.readouterr().out
 
-        assert expected_stdout in self.capsys.readouterr().out, (
-            'expected stdout incorrect'
-        )
+        with self.subTest('valid sample data returned'):
+            assert valid == self.sample_data
 
 
-    def test_error_raised_when_sample_has_no_tests(self):
+    def test_sample_with_no_tests_correctly_removed(self):
         """
-        Test we raise an error if a sample has no test codes booked against it
+        Test we catch if a sample has no test codes booked against it
+        and print a warning
         """
         # drop test codes for a booked sample
         sample_data_copy = deepcopy(self.sample_data)
         sample_data_copy[0]['codes'] = []
 
-        with pytest.raises(RuntimeError, match=r"No tests booked for sample"):
-            utils.validate_test_codes(
-                all_sample_data=sample_data_copy, genepanels=self.genepanels
-            )
+        _, invalid_tests = utils.validate_test_codes(
+            all_sample_data=sample_data_copy,
+            genepanels=self.genepanels
+        )
+
+        expected_warning = "111111-23251R0041 : ['No tests booked for sample']"
+
+        with self.subTest('Sample with no test code warning in stdout'):
+            assert expected_warning in self.capsys.readouterr().out
+
+        with self.subTest('Sample with no test code returned'):
+            assert invalid_tests == {"111111-23251R0041": ["No tests booked for sample"]}
 
 
-    def test_error_raised_when_sample_has_invalid_test_code(self):
+    def test_warning_printed_when_sample_has_invalid_test_code(self):
         """
-        RuntimeError should be raised if an invalid test code is provided
-        in the manifest, check that the correct error is returned
+        Warning should be printed to stdout if an invalid test code is
+        provided in the manifest, and the sample -> invalid test code
+        should be returned
         """
         # add in an invalid test code to a booked sample
         sample_data_copy = deepcopy(self.sample_data)
         sample_data_copy[0]['codes'].append('invalidTestCode')
 
-        with pytest.raises(RuntimeError, match=r"invalidTestCode"):
-            utils.validate_test_codes(
-                all_sample_data=sample_data_copy, genepanels=self.genepanels
-            )
+        _, invalid_codes = utils.validate_test_codes(
+            all_sample_data=sample_data_copy,
+            genepanels=self.genepanels
+        )
+
+        expected_warning = "111111-23251R0041 : ['invalidTestCode']"
+
+        with self.subTest('Expected warning in stdout'):
+            assert expected_warning in self.capsys.readouterr().out
+
+        with self.subTest('Expected invalid sample returned'):
+            assert invalid_codes == {'111111-23251R0041': ['invalidTestCode']}
 
 
     def test_error_not_raised_when_research_use_test_code_present(self):
         """
         Sometimes from Epic 'Research Use' can be present in the Test Codes
         column, we want to skip these as they're not a valid test code and
-        not raise an error
+        not return them in the valid samples list
         """
         # add in different forms of 'Research Use' as a test code to a
         # manifest sample
@@ -1335,7 +1355,7 @@ class TestValidateTestCodes(unittest.TestCase):
             'Research Use', 'ResearchUse', 'researchUse', 'research use'
         ])
 
-        utils.validate_test_codes(
+        valid, _ = utils.validate_test_codes(
             all_sample_data=sample_data_copy, genepanels=self.genepanels
         )
 
@@ -1363,6 +1383,10 @@ class TestValidateTestCodes(unittest.TestCase):
             assert expected_stdout_warning in stdout, (
                 'expected stdout warnings incorrect'
             )
+
+        with self.subTest():
+            samples = [x for y in valid for x in y]
+            assert '111111-23251R0041' not in samples
 
 
 class TestWriteToLog(unittest.TestCase):

@@ -43,8 +43,8 @@ Reanalysis inputs:
 * `--start_date` (optional): Earliest date to select samples from Clarity to run reports for, to be specified as YYMMDD
 * `--end_date` (optional): Latest date to select samples from Clarity to run reports for, to be specified as YYMMDD
 * `--unarchive` (optional): controls if to start unarchiving of any required files
-* `--testing` (optional): Controls where dias batch is run, when testing launch all in one 003 project
-* `--terminate` (optional): Controls if to terminate all analysis jobs dias batch launches
+* `--test_project` (optional): DNAnexus project ID in which to launch dias batch, if not specified will launch in original 002 projects
+* `--terminate` (optional): Controls if to terminate all analysis jobs dias batch launched
 * `--monitor` (optional): Controls if to monitor and report on state of launched dias batch jobs
 
 
@@ -77,6 +77,8 @@ The log file is structured as follows:
     ]
 }
 ```
+
+For any samples with invalid test code(s), these will print a warning to stdout during running and also be written to a JSON log file to review after (named as `{yymmdd_hhmm}_invalid_test_codes.json`).
 
 ### Example useful commands to query the log file:
 

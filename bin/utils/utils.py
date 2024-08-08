@@ -4,7 +4,6 @@ General utility functions
 from collections import defaultdict
 import concurrent
 from datetime import datetime
-from itertools import groupby
 import json
 from os import path
 import re
@@ -575,22 +574,21 @@ def validate_test_codes(all_sample_data, genepanels) -> None:
 
     Parameters
     ----------
-    manifest : dict
-        mapping of sampleID -> test codes
+    all_sample_data : list
+        list of per sample data, including sample ID, booked test codes
+        and booked date
     genepanels : pd.DataFrame
         dataframe of genepanels file
 
     Returns
     -------
+    list
+        list of sample data with validated test codes
     dict
-        dict of manifest with valid test codes
-
-    Raises
-    ------
-    RuntimeError
-        Raised if any invalid test codes requested for one or more samples
+        dict of sample ID -> invalid test codes
     """
     print("\n \nChecking test codes in manifest are valid")
+    valid = []
     invalid = defaultdict(list)
 
     genepanels = split_genepanels_test_codes(genepanels)
@@ -601,6 +599,8 @@ def validate_test_codes(all_sample_data, genepanels) -> None:
     for sample_data in all_sample_data:
         sample = sample_data['sample']
         test_codes = sample_data['codes']
+
+        sample_valid_test = []
         sample_invalid_test = []
 
         if test_codes == []:
@@ -610,7 +610,7 @@ def validate_test_codes(all_sample_data, genepanels) -> None:
 
         for test in test_codes:
             if test in genepanels_test_codes or re.search(r'HGNC:[\d]+', test):
-                continue
+                sample_valid_test.append(test)
             elif test.lower().replace(' ', '') == 'researchuse':
                 # more Epic weirdness, chuck these out but don't break
                 print(
@@ -620,6 +620,12 @@ def validate_test_codes(all_sample_data, genepanels) -> None:
             else:
                 sample_invalid_test.append(test)
 
+        if sample_valid_test:
+            # one or more valid test(s) for sample, build back the sample
+            # data to return with verified valid codes
+            sample_data['codes'] = sample_valid_test
+            valid.append(sample_data)
+
         if sample_invalid_test:
             # sample had one or more invalid test code
             invalid[sample].extend(sample_invalid_test)
@@ -628,12 +634,15 @@ def validate_test_codes(all_sample_data, genepanels) -> None:
         printable_invalid = "\n\t".join(
             f"{k} : {v}" for k, v in invalid.items()
         )
-        raise RuntimeError(
-            f"One or more samples had an invalid test code requested:\n\t"
+        print(
+            "\nWARNING: one or more samples with invalid test code(s)\n"
+            "These sample-tests will be excluded for reanalysis:\n\n\t"
             f"{printable_invalid}"
         )
     else:
         print("All sample test codes valid!")
+
+    return valid, invalid
 
 
 def write_to_log(log_file, key, job_ids) -> None:

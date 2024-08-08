@@ -667,7 +667,7 @@ def read_genepanels_file(file_details) -> pd.DataFrame:
     return genepanels
 
 
-def upload_manifest(manifest, path) -> str:
+def upload_manifest(manifest, project, path) -> str:
     """
     Upload manifest file to DNAnexus
 
@@ -675,6 +675,8 @@ def upload_manifest(manifest, path) -> str:
     ----------
     manifest : str
         filename of manifest to upload
+    project : str
+        DNAnexus project to upload file to
     path : str
         remote path to upload file to
 
@@ -684,11 +686,13 @@ def upload_manifest(manifest, path) -> str:
         file ID of uploaded manifest
     """
     remote_file = dxpy.upload_local_file(
-        manifest, folder=path, wait_on_close=True
+        manifest,
+        project=project,
+        folder=path,
+        wait_on_close=True
     )
 
     # clean up our generated local file
     os.remove(manifest)
 
     return remote_file.get_id()
-

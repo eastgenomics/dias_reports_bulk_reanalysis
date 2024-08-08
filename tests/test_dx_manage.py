@@ -1235,6 +1235,7 @@ class TestUploadManifest(unittest.TestCase):
 
         dx_manage.upload_manifest(
             manifest=test_file,
+            project='project-xxx',
             path='/'
         )
 
@@ -1255,6 +1256,7 @@ class TestUploadManifest(unittest.TestCase):
 
         file_id = dx_manage.upload_manifest(
             manifest='',
+            project='project-xxx',
             path='/'
         )
 
