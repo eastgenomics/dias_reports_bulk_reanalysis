@@ -652,6 +652,11 @@ def download_all_reports(log_file, output_path) -> None:
         log file to read job IDs from
     output_path : str
         path of where to download files to
+
+    Raises
+    ------
+    SystemExit
+        Will exit with zero exit code on any jobs being still in progress
     """
     job_ids = read_from_log(log_file=log_file)
     batch_job_ids = job_ids.get('dias_batch')
