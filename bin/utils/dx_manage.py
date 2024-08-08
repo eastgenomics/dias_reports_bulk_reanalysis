@@ -576,8 +576,6 @@ def run_batch(
         app_input=app_input, project=project, name=name
     )
 
-    print(f"Launched dias batch job {job.id} in {project}")
-
     return job.id
 
 
