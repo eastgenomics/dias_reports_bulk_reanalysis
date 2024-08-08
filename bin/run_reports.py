@@ -775,7 +775,7 @@ def main():
         else:
             print("Invalid response, please enter 'y' or 'n'")
 
-    now = datetime.datetime.today().strftime('%y%m%d_%H%M')
+    now = datetime.today().strftime('%y%m%d_%H%M')
     launched_job_log = f"launched_jobs_{now}_log.json"
 
     batch_job_ids = run_all_batch_jobs(args=args, all_sample_data=sample_data)
