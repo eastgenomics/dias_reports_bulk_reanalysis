@@ -376,14 +376,6 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
 
         launched_jobs.append(batch_id)
 
-        job_id_log = path.join(
-            path.dirname(path.abspath(__file__)),
-            f"../logs/launched_batch_jobs_{now}.log"
-        )
-
-        with open(job_id_log, "a") as fh:
-            fh.write(f"{batch_id}\n")
-
     print(f"Launched {len(launched_jobs)} Dias batch jobs")
 
     return launched_jobs
