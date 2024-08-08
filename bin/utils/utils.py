@@ -381,7 +381,7 @@ def limit_samples(samples, limit=None, start=None, end=None) -> dict:
     if not limited_samples:
         # no samples left in selected date range => exit
         print(
-            "\WARNING - no samples present in Clarity from the provided "
+            "\nWARNING - no samples present in Clarity from the provided "
             "date range. Exiting now."
         )
         exit(0)
