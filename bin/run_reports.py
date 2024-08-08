@@ -42,6 +42,7 @@ from utils.utils import (
     filter_clarity_samples_with_no_reports,
     group_samples_by_project,
     group_dx_objects_by_project,
+    filter_reports_with_variants,
     limit_samples,
     parse_config,
     parse_clarity_export,
@@ -685,56 +686,31 @@ def download_all_reports(log_file, output_path) -> None:
     for project_id, project_data in project_job_details.items():
         print(f"\nDownloading files for {project_data['project_name']}")
 
-        report_jobs = [
+        snv_report_jobs = [
             x for x in project_data['items'] if x['id'].startswith('analysis-')
+            and 'dias_reports' in x['executableName']
+        ]
+        cnv_report_jobs = [
+            x for x in project_data['items'] if x['id'].startswith('analysis-')
+            and 'dias_cnvreports' in x['executableName']
         ]
         artemis_jobs = [
             x for x in project_data['items'] if x['id'].startswith('job-')
         ]
 
-        # get the xlsx report file IDs to find those containing filtered
-        # variants by using the 'included' key in the details metadata
-        xlsx_reports = [
-            x.get('output', {}).get(
-                'stage-rpt_generate_workbook.xlsx_report', {}
-            ).get('$dnanexus_link') for x in report_jobs if x.get('output')
-        ]
-
-        xlsx_details = call_in_parallel(
-            dxpy.describe,
-            xlsx_reports,
-            fields={'details'},
-            default_fields=True
+        # get just snv and cnv reports (plus coverage reports) for reports
+        # where there are some variants filtered
+        snv_ids = filter_reports_with_variants(
+            reports=snv_report_jobs,
+            report_field='stage-rpt_generate_workbook.xlsx_report'
         )
 
-        # get IDs of reports that have filtered variants
-        xlsx_w_variants = [
-            x['id'] for x in xlsx_details if x['details']['included'] > 0
-        ]
+        cnv_ids = filter_reports_with_variants(
+            reports=cnv_report_jobs,
+            report_field='stage-cnv_generate_workbook.xlsx_report'
+        )
 
-        print(f"{len(xlsx_w_variants)} reports with variants")
-
-        xlsx_ids = coverage_ids = artemis_links_ids = multiqc_ids = []
-
-        # get original reports workflows for the above reports to be able
-        # to just download the xlsx and coverage reports for those
-        if xlsx_w_variants:
-            workflows_w_variants = [
-                x for x in report_jobs
-                if x['output']['stage-rpt_generate_workbook.xlsx_report'][
-                    '$dnanexus_link'] in xlsx_w_variants
-            ]
-
-            # get the file IDs of our output files to download
-            xlsx_ids = [
-                x['output']['stage-rpt_generate_workbook.xlsx_report'][
-                    '$dnanexus_link'] for x in workflows_w_variants
-            ]
-
-            coverage_ids = [
-                x['output']['stage-rpt_athena.report']['$dnanexus_link']
-                for x in workflows_w_variants
-            ]
+        artemis_links_ids = multiqc_ids = []
 
         if artemis_jobs:
             artemis_links_ids = [
@@ -747,7 +723,7 @@ def download_all_reports(log_file, output_path) -> None:
                 if x['input'].get('multiqc_report', {}).get('$dnanexus_link')
             ]
 
-        if not xlsx_ids and not artemis_links_ids:
+        if not any([snv_ids, cnv_ids, artemis_links_ids]):
             print(
                 f"\nNo reports with variants or eggd_artemis output to "
                 f"download for {project_data['project_name']}"
@@ -759,19 +735,20 @@ def download_all_reports(log_file, output_path) -> None:
         makedirs(project_path, exist_ok=True)
 
         print(
-            f"Downloading {len(xlsx_ids)} xlsx reports, {len(coverage_ids)} "
-            f"coverage reports, {len(artemis_links_ids)} links files and "
+            f"Downloading {int(len(snv_ids) / 2) + len(cnv_ids)} xlsx reports, "
+            f"{int(len(snv_ids) / 2)} coverage reports, "
+            f"{len(artemis_links_ids)} links files and "
             f"{len(multiqc_ids)} multiQC reports"
         )
 
         call_in_parallel(
             download_single_file,
-            xlsx_ids + coverage_ids + artemis_links_ids + multiqc_ids,
+            snv_ids + cnv_ids + artemis_links_ids + multiqc_ids,
             project=project_id,
             path=project_path
         )
 
-        print(f"Completed downloading files to {project_path}")
+        print(f"\nCompleted downloading files to {project_path}")
 
 
 def main():
