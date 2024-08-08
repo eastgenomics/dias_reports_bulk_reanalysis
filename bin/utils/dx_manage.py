@@ -3,8 +3,6 @@ Functions relating to managing data objects an queries in DNAnexus
 """
 import concurrent
 from datetime import datetime
-from itertools import groupby
-from operator import itemgetter
 import os
 from pathlib import Path
 import re
