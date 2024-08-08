@@ -372,7 +372,7 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
 
         job_id_log = path.join(
             path.dirname(path.abspath(__file__)),
-            f"../../logs/launched_batch_jobs_{now}.log"
+            f"../logs/launched_batch_jobs_{now}.log"
         )
 
         with open(job_id_log, "a") as fh:
