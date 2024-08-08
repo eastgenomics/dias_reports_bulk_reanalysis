@@ -683,11 +683,7 @@ def download_all_reports(log_file, output_path) -> None:
     project_job_details = group_dx_objects_by_project(job_details)
 
     for project_id, project_data in project_job_details.items():
-        print(f"Downloading files for {project_data['project_name']}")
-
-        # create local run dir for downloading to
-        project_path = path.join(output_path, project_data['project_name'])
-        makedirs(project_path, exist_ok=True)
+        print(f"\nDownloading files for {project_data['project_name']}")
 
         report_jobs = [
             x for x in project_data['items'] if x['id'].startswith('analysis-')
@@ -699,8 +695,9 @@ def download_all_reports(log_file, output_path) -> None:
         # get the xlsx report file IDs to find those containing filtered
         # variants by using the 'included' key in the details metadata
         xlsx_reports = [
-            x['output'].get('stage-rpt_generate_workbook.xlsx_report', {}).get(
-                '$dnanexus_link') for x in report_jobs
+            x.get('output', {}).get(
+                'stage-rpt_generate_workbook.xlsx_report', {}
+            ).get('$dnanexus_link') for x in report_jobs if x.get('output')
         ]
 
         xlsx_details = call_in_parallel(
@@ -717,33 +714,49 @@ def download_all_reports(log_file, output_path) -> None:
 
         print(f"{len(xlsx_w_variants)} reports with variants")
 
+        xlsx_ids = coverage_ids = artemis_links_ids = multiqc_ids = []
+
         # get original reports workflows for the above reports to be able
         # to just download the xlsx and coverage reports for those
-        workflows_w_variants = [
-            x for x in report_jobs
-            if x['output']['stage-rpt_generate_workbook.xlsx_report'][
-                '$dnanexus_link'] in xlsx_w_variants
-        ]
+        if xlsx_w_variants:
+            workflows_w_variants = [
+                x for x in report_jobs
+                if x['output']['stage-rpt_generate_workbook.xlsx_report'][
+                    '$dnanexus_link'] in xlsx_w_variants
+            ]
 
-        # get the file IDs of our output files to download
-        xlsx_ids = [
-            x['output']['stage-rpt_generate_workbook.xlsx_report'][
-                '$dnanexus_link'] for x in workflows_w_variants
-        ]
+            # get the file IDs of our output files to download
+            xlsx_ids = [
+                x['output']['stage-rpt_generate_workbook.xlsx_report'][
+                    '$dnanexus_link'] for x in workflows_w_variants
+            ]
 
-        coverage_ids = [
-            x['output']['stage-rpt_athena.report']['$dnanexus_link']
-            for x in workflows_w_variants
-        ]
+            coverage_ids = [
+                x['output']['stage-rpt_athena.report']['$dnanexus_link']
+                for x in workflows_w_variants
+            ]
 
-        artemis_links_ids = [
-            x['output']['url_file']['$dnanexus_link'] for x in artemis_jobs
-        ]
+        if artemis_jobs:
+            artemis_links_ids = [
+                x['output']['url_file']['$dnanexus_link'] for x in artemis_jobs
+                if x['output']
+            ]
 
-        multiqc_ids = [
-            x['input']['multiqc_report'] for x in artemis_jobs
-            if x['input'].get('multiqc_report', {}).get('$dnanexus_link')
-        ]
+            multiqc_ids = [
+                x['input']['multiqc_report'] for x in artemis_jobs
+                if x['input'].get('multiqc_report', {}).get('$dnanexus_link')
+            ]
+
+        if not xlsx_ids and not artemis_links_ids:
+            print(
+                f"\nNo reports with variants or eggd_artemis output to "
+                f"download for {project_data['project_name']}"
+            )
+            continue
+
+        # create local run dir for downloading to
+        project_path = path.join(output_path, project_data['project_name'])
+        makedirs(project_path, exist_ok=True)
 
         print(
             f"Downloading {len(xlsx_ids)} xlsx reports, {len(coverage_ids)} "
