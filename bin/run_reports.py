@@ -141,6 +141,12 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
             f"{datetime.today().strftime('%y%m%d_%H%M')}"
             "_invalid_test_codes.json"
         )
+
+        invalid_test_log = path.abspath(path.join(
+            path.dirname(path.abspath(__file__)),
+            f"../../logs/{invalid_test_log}"
+        ))
+
         with open(invalid_test_log, 'w') as fh:
             json.dump(invalid_sample_tests, fh)
 
