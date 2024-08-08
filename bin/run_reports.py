@@ -277,7 +277,7 @@ def write_manifest(project_name, sample_data, now) -> List[dict]:
     str
         file name of manifest generated
     """
-    print(f"Generating manifest data for {len(sample_data)} samples")
+    print(f"\nGenerating manifest data for {len(sample_data)} samples")
 
     manifest = f"{project_name}-{now}_re_run.manifest"
     count = 0
@@ -771,7 +771,7 @@ def main():
         confirm = input('Run jobs? ')
 
         if confirm.lower() in ['y', 'yes']:
-            print("Beginning launching jobs...")
+            print("\nBeginning launching jobs...")
             break
         elif confirm.lower() in ['n', 'no']:
             print("Stopping now.")
