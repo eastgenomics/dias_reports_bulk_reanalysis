@@ -10,6 +10,7 @@ from typing import List, Union
 
 import dxpy
 import pandas as pd
+from tqdm import tqdm
 
 from .utils import call_in_parallel
 
@@ -158,16 +159,20 @@ def download_single_file(dxid, project, path) -> None:
     )
 
 
-def create_folder(path) -> None:
+def create_folder(project, path) -> None:
     """
     Create folder for storing manifests
 
     Parameters
     ----------
+    project : str
+        project to create folder in
     path : str
         folder to create
     """
-    dxpy.bindings.dxproject.DXProject().new_folder(folder=path, parents=True)
+    dxpy.bindings.dxproject.DXProject(dxid=project).new_folder(
+        folder=path, parents=True
+    )
 
 
 def find_in_parallel(project, items, prefix='', suffix='') -> list:
@@ -385,7 +390,7 @@ def get_xlsx_reports(all_samples, projects) -> list:
 
     all_reports = []
 
-    for project in projects:
+    for project in tqdm(projects, ncols=100):
         project_reports = []
 
         project_reports = find_in_parallel(
@@ -395,8 +400,6 @@ def get_xlsx_reports(all_samples, projects) -> list:
             suffix='.*xlsx'
         )
         all_reports.extend(project_reports)
-
-        print(f"Found {len(project_reports)} reports in project {project}")
 
     # filter out any xlsx files found that look to also have a run ID
     # in the name => output from eggd_artemis for a single sample
@@ -571,8 +574,6 @@ def run_batch(
     job = dxpy.DXApp(batch_app_id).run(
         app_input=app_input, project=project, name=name
     )
-
-    print(f"Launched dias batch job {job.id} in {project}")
 
     return job.id
 

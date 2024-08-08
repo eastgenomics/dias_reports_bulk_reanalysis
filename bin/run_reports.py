@@ -63,7 +63,7 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
         "project-xxx": {
             "project_name": "002_240401_A01295_0334_XXYNSHDBDR",
             "cnv_call_job_id": "job-xxx",
-            "dias_single_path": "project-xxx:/output/CEN_240401_1105",
+            "dias_single": "project-xxx:/output/CEN_240401_1105",
             "samples": [
                 {
                     "sample": "123456-23251R0047",
@@ -141,6 +141,12 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
             f"{datetime.today().strftime('%y%m%d_%H%M')}"
             "_invalid_test_codes.json"
         )
+
+        invalid_test_log = path.abspath(path.join(
+            path.dirname(path.abspath(__file__)),
+            f"../../logs/{invalid_test_log}"
+        ))
+
         with open(invalid_test_log, 'w') as fh:
             json.dump(invalid_sample_tests, fh)
 
@@ -277,7 +283,7 @@ def write_manifest(project_name, sample_data, now) -> List[dict]:
     str
         file name of manifest generated
     """
-    print(f"Generating manifest data for {len(sample_data)} samples")
+    print(f"\nGenerating manifest data for {len(sample_data)} samples")
 
     manifest = f"{project_name}-{now}_re_run.manifest"
     count = 0
@@ -320,7 +326,6 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
     """
     now = datetime.now().strftime("%y%m%d_%H%M")
 
-    create_folder(path=f"/manifests/{now}")
     batch_app_id = get_latest_dias_batch_app()
 
     launched_jobs = []
@@ -338,6 +343,11 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
             now=now
         )
 
+        create_folder(
+            project=batch_project,
+            path=f"/manifests/{now}"
+        )
+
         manifest_id = upload_manifest(
             manifest=manifest,
             project=batch_project,
@@ -351,7 +361,7 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
             project=batch_project,
             batch_app_id=batch_app_id,
             cnv_job=project_data['cnv_call_job_id'],
-            single_path=project_data['dias_single_path'],
+            single_path=project_data['dias_single'],
             manifest=manifest_id,
             name=name,
             batch_inputs=args.batch_inputs,
@@ -365,14 +375,6 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
         )
 
         launched_jobs.append(batch_id)
-
-        job_id_log = path.join(
-            path.dirname(path.abspath(__file__)),
-            f"../../logs/launched_batch_jobs_{now}.log"
-        )
-
-        with open(job_id_log, "a") as fh:
-            fh.write(f"{batch_id}\n")
 
     print(f"Launched {len(launched_jobs)} Dias batch jobs")
 
@@ -767,7 +769,7 @@ def main():
         confirm = input('Run jobs? ')
 
         if confirm.lower() in ['y', 'yes']:
-            print("Beginning launching jobs...")
+            print("\nBeginning launching jobs...")
             break
         elif confirm.lower() in ['n', 'no']:
             print("Stopping now.")
@@ -775,7 +777,7 @@ def main():
         else:
             print("Invalid response, please enter 'y' or 'n'")
 
-    now = datetime.datetime.today().strftime('%y%m%d_%H%M')
+    now = datetime.today().strftime('%y%m%d_%H%M')
     launched_job_log = f"launched_jobs_{now}_log.json"
 
     batch_job_ids = run_all_batch_jobs(args=args, all_sample_data=sample_data)
