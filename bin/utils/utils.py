@@ -393,6 +393,68 @@ def limit_samples(samples, limit=None, start=None, end=None) -> dict:
     return limited_samples
 
 
+def filter_reports_with_variants(reports, report_field) -> list:
+    """
+    Using a list of workflow analysis IDs, returns a list of file IDs of
+    xlsx reports with one or more variants in from the xlsx file 'include'
+    sheet
+
+    Parameters
+    ----------
+    reports : list
+        list of DXAnalysis objects
+    report_field : str
+        output field of the xlsx file (i.e for SNV or CNV)
+
+    Returns
+    -------
+    list
+        list of file IDs of reports with variants to download
+    """
+    # get the xlsx report file IDs to find those containing filtered
+    # variants by using the 'included' key in the details metadata,
+    xlsx_report_ids = [
+        job.get('output', {}).get(report_field, {}).get('$dnanexus_link')
+        for job in reports if job.get('output')
+    ]
+
+    xlsx_details = call_in_parallel(
+        dxpy.describe,
+        xlsx_report_ids,
+        fields={'details'},
+        default_fields=True
+    )
+
+    # get IDs of reports that have filtered variants, details key can
+    # either be included or variants because why not so check both
+    xlsx_w_variants = [
+        x['id'] for x in xlsx_details for field in ['included', 'variants']
+        if x['details'].get(field, 0) > 0
+    ]
+
+    # get original reports workflows for the above reports to be able
+    # to just download both the xlsx and coverage reports for those
+    workflows_w_variants = [
+        x for x in reports
+        if x['output'].get(report_field).get('$dnanexus_link') in xlsx_w_variants
+    ]
+
+    # get the file IDs of our output files to download
+    xlsx_ids = [
+        x['output'][report_field]['$dnanexus_link'] for x in workflows_w_variants
+    ]
+
+    coverage_ids = [
+        x['output'].get('stage-rpt_athena.report', {}).get('$dnanexus_link')
+        for x in workflows_w_variants
+    ]
+
+    # ensure we drop any None values from the mess of selecting
+    file_ids = [x for x in xlsx_ids + coverage_ids if x]
+
+    return file_ids
+
+
 def parse_config() -> Union[dict, dict]:
     """
     Parse config file of manually specified Dias single paths and CNV

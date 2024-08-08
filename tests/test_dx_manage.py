@@ -145,6 +145,126 @@ class TestCheckArchivalState(unittest.TestCase):
         ), "Wrong no. files identified to check archival state of"
 
 
+class TestCheckJobState(unittest.TestCase):
+    """
+    Tests for dx_manage.check_job_state
+
+    Function takes in a list of DXJob details and splits these out by
+    those in progress, failed and done.
+    """
+    # example job details with one job per state
+    job_details = [
+        {
+            'id': 'job-aaa',
+            'project': 'project-xxx',
+            'state': 'idle'
+        },
+        {
+            'id': 'job-aaa',
+            'project': 'project-xxx',
+            'state': 'waiting_on_input'
+        },
+        {
+            'id': 'job-bbb',
+            'project': 'project-xxx',
+            'state': 'in_progress'
+        },
+        {
+            'id': 'job-ccc',
+            'project': 'project-xxx',
+            'state': 'runnable'
+        },
+        {
+            'id': 'job-ddd',
+            'project': 'project-xxx',
+            'state': 'running'
+        },
+        {
+            'id': 'job-eee',
+            'project': 'project-xxx',
+            'state': 'waiting_on_output'
+        },
+        {
+            'id': 'job-fff',
+            'project': 'project-xxx',
+            'state': 'done'
+        },
+        {
+            'id': 'job-ggg',
+            'project': 'project-xxx',
+            'state': 'restarted'
+        },
+        {
+            'id': 'job-hhh',
+            'project': 'project-xxx',
+            'state': 'restartable'
+        },
+        {
+            'id': 'job-iii',
+            'project': 'project-xxx',
+            'state': 'debug_hold'
+        },
+        {
+            'id': 'job-jjj',
+            'project': 'project-xxx',
+            'state': 'failed'
+        },
+        {
+            'id': 'job-kkk',
+            'project': 'project-xxx',
+            'state': 'terminating'
+        },
+        {
+            'id': 'job-lll',
+            'project': 'project-zzz',
+            'state': 'terminated'
+        }
+    ]
+
+    @pytest.fixture(autouse=True)
+    def capsys(self, capsys):
+        """Capture stdout to provide it to tests"""
+        self.capsys = capsys
+
+
+    def test_correct_totals_of_states_returned(self):
+        """
+        Test that the correct totals by states are returned
+        """
+        all_job_states = dx_manage.check_job_state(self.job_details)
+
+        with self.subTest('correct in progress jobs'):
+            assert len(all_job_states['in_progress']) == 7
+
+        with self.subTest('correct failed jobs'):
+            assert len(all_job_states['failed']) == 4
+
+        with self.subTest('correct done jobs'):
+            assert len(all_job_states['done']) == 1
+
+
+    def test_warning_printed_on_failed_jobs(self):
+        """
+        Test that we correctly print a warning to stdout with total of
+        failed / terminated jobs, and a url to the monitor tab per
+        project of failed jobs
+        """
+        dx_manage.check_job_state(self.job_details)
+
+        expected_stdout = (
+            "WARNING: 4 jobs in a failed / terminated state.\n\nProjects "
+            "with failed jobs:\n\thttps://platform.dnanexus.com/panx/"
+            "projects/project-xxx/monitor?state.values=failed%2Cterminating"
+            "%2Cterminated%2CpartiallyFailed\n\thttps://platform.dnanexus.com/"
+            "panx/projects/project-zzz/monitor?state.values=failed%2C"
+            "terminating%2Cterminated%2CpartiallyFailed"
+        )
+
+        assert expected_stdout in self.capsys.readouterr().out, (
+            'Expected warning not in stdout'
+        )
+
+
 class TestUnarchiveFiles(unittest.TestCase):
     """
     Tests for dx_manage.unarchive_files()
