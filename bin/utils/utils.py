@@ -348,14 +348,12 @@ def limit_samples(samples, limit=None, start=None, end=None) -> dict:
     # pre-sort sample list by booked in datetime stored against each
     samples = sorted(samples, key=lambda d: d['date'])
 
-    print(samples[0]['date'])
-    print(samples[-1]['date'])
-
     print(
         "\nLimiting samples retained for running reports, currently have "
-        f"{len(samples)} samples from Clarity.\nEarliest booked sample in "
-        f"Clarity export: {samples[0]['date']}\nLatest booked sample in "
-        f"Clarity export: {samples[-1]['date']}\nLimits specified:\n\t"
+        f"{len(samples)} samples from Clarity.\n\nEarliest booked sample in "
+        f"Clarity export: {samples[0]['date'].strftime('%Y-%m-%d')}\n"
+        f"Latest booked sample in Clarity export: "
+        f"{samples[-1]['date'].strftime('%Y-%m-%d')}\nLimits specified:\n\t"
         f"Maximum number samples: {limit}\n\tDate range: "
         f"{start.strftime('%Y-%m-%d')} : {end.strftime('%Y-%m-%d')}"
     )
@@ -381,7 +379,7 @@ def limit_samples(samples, limit=None, start=None, end=None) -> dict:
     if not limited_samples:
         # no samples left in selected date range => exit
         print(
-            "\nWARNING - no samples present in Clarity from the provided "
+            "\nWARNING: no samples present in Clarity from the provided "
             "date range. Exiting now."
         )
         exit(0)
