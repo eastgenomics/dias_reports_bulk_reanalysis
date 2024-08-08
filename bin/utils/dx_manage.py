@@ -42,8 +42,8 @@ def check_archival_state(project, sample_data) -> Union[list, list, list]:
     # and Artemis
     sample_file_patterns = [
         '_segments.vcf$',
-        '_copy_ratios.gcnv.bed$',
-        '_copy_ratios.gcnv.bed.tbi$',
+        '_copy_ratios.gcnv.bed.gz$',
+        '_copy_ratios.gcnv.bed.gz.tbi$',
         '_markdup.per-base.bed.gz$',
         '_markdup_recalibrated_Haplotyper.vcf.gz$',
         '_markdup.reference_build.txt$',
