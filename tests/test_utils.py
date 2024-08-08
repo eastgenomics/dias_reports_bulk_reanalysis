@@ -889,9 +889,6 @@ class TestLimitSamples(unittest.TestCase):
             assert expected_stdout in self.capsys.readouterr().out
 
 
-
-
-
 class TestParseConfig(unittest.TestCase):
     """
     Tests for utils.parse_config
