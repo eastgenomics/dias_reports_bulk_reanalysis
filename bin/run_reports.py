@@ -328,7 +328,6 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
     for project, project_data in all_sample_data.items():
 
         if args.test_project:
-            # when testing run everything in one 003 project
             batch_project = args.test_project
         else:
             batch_project = project["id"]
@@ -527,7 +526,6 @@ def parse_args() -> argparse.Namespace:
     )
     reanalysis_parser.add_argument(
         "--test_project",
-        required=True,
         type=str,
         help=(
             "DNAnexus project to run all batch jobs and analysis in for "
