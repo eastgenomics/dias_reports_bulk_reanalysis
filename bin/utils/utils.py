@@ -31,7 +31,8 @@ def call_in_parallel(func, items, ignore_missing=True, **kwargs) -> list:
     ignore_missing : bool
         controls if to just print a warning instead of raising an
         exception on a dxpy.exceptions.ResourceNotFound being raised.
-        This is most likely from a file that has been deleted.
+        This is most likely from a file that has been deleted and we are
+        just going to default to ignoring these
 
     Returns
     -------

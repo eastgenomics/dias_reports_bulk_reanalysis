@@ -719,13 +719,6 @@ def download_all_reports(log_file, output_path) -> None:
         artemis_links_ids = multiqc_ids = []
 
         if artemis_jobs:
-            # for job in artemis_jobs:
-            #     print(job)
-
-            # for job in artemis_jobs:
-            #     print(job['id'])
-            #     print(job['output'])
-
             artemis_links_ids = [
                 x['output']['url_file']['$dnanexus_link'] for x in artemis_jobs
                 if x['output']
