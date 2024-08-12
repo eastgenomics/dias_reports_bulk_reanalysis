@@ -436,7 +436,8 @@ def filter_reports_with_variants(reports, report_field) -> list:
     # to just download both the xlsx and coverage reports for those
     workflows_w_variants = [
         x for x in reports
-        if x['output'].get(report_field).get('$dnanexus_link') in xlsx_w_variants
+        if x['output'].get(report_field, {}).get(
+            '$dnanexus_link') in xlsx_w_variants
     ]
 
     # get the file IDs of our output files to download
