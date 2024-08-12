@@ -670,7 +670,8 @@ def download_all_reports(log_file, output_path) -> None:
 
     print(
         f"{len(launched_job_ids)} jobs from {len(batch_job_ids)} dias batch "
-        f"jobs to download output reports from...\n"
+        f"jobs to download output reports from. Checking details of all "
+        "launched jobs...\n"
     )
 
     job_details = call_in_parallel(dxpy.describe, launched_job_ids)
