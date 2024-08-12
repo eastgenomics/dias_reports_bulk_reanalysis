@@ -220,7 +220,6 @@ def download_single_file(dxid, project, path) -> None:
     path : str
         path to download file to
     """
-    # try:
     dxpy.bindings.dxfile_functions.download_dxfile(
         dxid,
         os.path.join(path, dxpy.describe(dxid).get('name')),
