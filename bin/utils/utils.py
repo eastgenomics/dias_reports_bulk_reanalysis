@@ -13,7 +13,7 @@ import dxpy
 import pandas as pd
 
 
-def call_in_parallel(func, items, **kwargs) -> list:
+def call_in_parallel(func, items, ignore_missing=True, **kwargs) -> list:
     """
     Calls the given function in parallel using concurrent.futures on
     the given set of items (i.e for calling dxpy.describe() on multiple
@@ -28,6 +28,10 @@ def call_in_parallel(func, items, **kwargs) -> list:
         function to call on each item
     items : list
         list of items to call function on
+    ignore_missing : bool
+        controls if to just print a warning instead of raising an
+        exception on a dxpy.exceptions.ResourceNotFound being raised.
+        This is most likely from a file that has been deleted.
 
     Returns
     -------
@@ -46,9 +50,21 @@ def call_in_parallel(func, items, **kwargs) -> list:
             try:
                 results.append(future.result())
             except Exception as exc:
-                # catch any errors that might get raised during querying
+                if (
+                    ignore_missing and
+                    isinstance(exc, dxpy.exceptions.ResourceNotFound)
+                ):
+                    # dx object does not exist and specifying to skip,
+                    # just print warning and continue'
+                    print(
+                        f'WARNING: {concurrent_jobs[future]} could not be '
+                        'found, skipping to not raise an exception'
+                    )
+                    continue
+
+                # catch any other errors that might get raised during querying
                 print(
-                    f"Error getting data for {concurrent_jobs[future]}: {exc}"
+                    f"\nError getting data for {concurrent_jobs[future]}: {exc}"
                 )
                 raise exc
 

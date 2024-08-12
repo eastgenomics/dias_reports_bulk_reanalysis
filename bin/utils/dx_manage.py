@@ -220,19 +220,12 @@ def download_single_file(dxid, project, path) -> None:
     path : str
         path to download file to
     """
-    try:
-        dxpy.bindings.dxfile_functions.download_dxfile(
-            dxid,
-            os.path.join(path, dxpy.describe(dxid).get('name')),
-            project=project
-        )
-    except dxpy.exceptions.ResourceNotFound:
-        # exception raised when file has been deleted, let anything else
-        # continue to raise and exit
-        print(
-            f'WARNING: {dxid} could not be found (assumed deleted)m skipping '
-            'downloading file'
-        )
+    # try:
+    dxpy.bindings.dxfile_functions.download_dxfile(
+        dxid,
+        os.path.join(path, dxpy.describe(dxid).get('name')),
+        project=project
+    )
 
 
 def create_folder(project, path) -> None:
@@ -407,7 +400,7 @@ def get_launched_workflow_ids(batch_ids) -> Union[list, list]:
 
     # the only single jobs *should* be eggd_artemis here since we aren't
     # running CNV calling, split this from the reports jobs
-    artemis_jobs = [x for x in report_jobs if x.startswith('job-')]
+    artemis_jobs = [x for x in report_jobs if x['name'] == 'eggd_artemis']
     report_jobs = [x for x in report_jobs if x.startswith('analysis-')]
 
     return artemis_jobs, report_jobs
