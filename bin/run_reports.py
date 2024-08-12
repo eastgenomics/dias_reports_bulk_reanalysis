@@ -689,8 +689,14 @@ def download_all_reports(log_file, output_path) -> None:
 
     project_job_details = group_dx_objects_by_project(job_details)
 
+    count = 0
+
     for project_id, project_data in project_job_details.items():
-        print(f"\nDownloading files for {project_data['project_name']}")
+        count += 1
+        print(
+            f"\n[{count}/{len(project_job_details.keys())}] Downloading "
+            f"files for {project_data['project_name']} ({project_id})\n"
+        )
 
         snv_report_jobs = [
             x for x in project_data['items'] if x['id'].startswith('analysis-')
