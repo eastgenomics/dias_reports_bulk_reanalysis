@@ -432,7 +432,7 @@ def filter_reports_with_variants(reports, report_field) -> list:
     # variants by using the 'included' key in the details metadata,
     xlsx_report_ids = [
         job.get('output', {}).get(report_field, {}).get('$dnanexus_link')
-        for job in reports if job.get('output')
+        for job in reports if job.get('output', {}).get(report_field, {})
     ]
 
     xlsx_details = call_in_parallel(
