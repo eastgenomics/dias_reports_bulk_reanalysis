@@ -42,8 +42,8 @@ def check_archival_state(project, sample_data) -> Union[list, list, list]:
     # and Artemis
     sample_file_patterns = [
         '_segments.vcf$',
-        '_copy_ratios.gcnv.bed$',
-        '_copy_ratios.gcnv.bed.tbi$',
+        '_copy_ratios.gcnv.bed.gz$',
+        '_copy_ratios.gcnv.bed.gz.tbi$',
         '_markdup.per-base.bed.gz$',
         '_markdup_recalibrated_Haplotyper.vcf.gz$',
         '_markdup.reference_build.txt$',
@@ -76,6 +76,74 @@ def check_archival_state(project, sample_data) -> Union[list, list, list]:
     )
 
     return live, unarchiving, archived
+
+
+def check_job_state(jobs) -> dict:
+    """
+    Checks the job state of all jobs
+
+    Assumed valid execution states include:
+        idle, waiting_on_input, runnable, running, waiting_on_output, done,
+        restarted, restartable, debug_hold, failed, terminating, terminated
+
+    Parameters
+    ----------
+    job_ids : list
+        list of dx job details
+
+    Returns
+    -------
+    dict
+        dict of in_progress, failed and done job lists
+    """
+    print(f"\nChecking state of {len(jobs)} jobs\n")
+
+    in_progress_states = [
+        'idle', 'waiting_on_input', 'runnable', 'running', 'waiting_on_output',
+        'restarted', 'restartable'
+    ]
+
+    failed_states = ['debug_hold', 'failed', 'terminating', 'terminated']
+
+    all_job_states = {}
+
+    all_job_states['in_progress'] = [
+        job for job in jobs if job['state'] in in_progress_states
+    ]
+    all_job_states['failed'] = [
+        job for job in jobs if job['state'] in failed_states
+    ]
+    all_job_states['done'] = [
+        job for job in jobs if job['state'] == 'done'
+    ]
+
+    print(
+        f"Total job states:\n\tin progress: {len(all_job_states['in_progress'])}\n\t"
+        f"done: {len(all_job_states['done'])}\n\tfailed: "
+        f"{len(all_job_states['failed'])}"
+    )
+
+    if all_job_states['failed']:
+        failed_job_projects = sorted(set([
+            x['project'] for x in all_job_states['failed']
+        ]))
+
+        base_url = (
+            "https://platform.dnanexus.com/panx/projects/"
+            "PROJECT/monitor?state.values=failed%2Cterminating"
+            "%2Cterminated%2CpartiallyFailed"
+        )
+
+        failed_urls = '\n\t'.join([
+            base_url.replace('PROJECT', x) for x in failed_job_projects
+        ])
+
+        print(
+            f"\nWARNING: {len(all_job_states['failed'])} jobs in a failed / "
+            f"terminated state.\n\nProjects with failed jobs:\n\t{failed_urls}"
+        )
+
+    return all_job_states
 
 
 def unarchive_files(project_files) -> None:
