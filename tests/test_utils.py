@@ -82,24 +82,43 @@ class TestCallInParallel(unittest.TestCase):
         Test that if the called function raises a
         dxpy.exceptions.ResourceNotFound error that the function
         correctly prints a warning and continues without actually
-        raising the exception
+        raising the exception if ignore_missing is True
         """
         mock_date.side_effect = dxpy.exceptions.ResourceNotFound(
             content={'error': {'type': 'foo', 'message': 'bar'}},
             code=1
         )
 
-        # this should not raise an error
-        utils.call_in_parallel(utils.date_str_to_datetime, ['240101'])
+        with self.subTest('ignore_missing True'):
+            # this should not raise an error
+            utils.call_in_parallel(
+                func=utils.date_str_to_datetime,
+                items=['240101'],
+                ignore_missing=True
+            )
 
-        expected_stdout = (
-            'WARNING: 240101 could not be found, skipping to '
-            'not raise an exception'
-        )
+        with self.subTest('ignore_missing False') and pytest.raises(
+            dxpy.exceptions.ResourceNotFound
+        ):
+            # this *should* raise an error
+            utils.call_in_parallel(
+                func=utils.date_str_to_datetime,
+                items=['240101']
+            )
 
-        assert expected_stdout in self.capsys.readouterr().out, (
-            'expected warning message incorrect'
-        )
+        with self.subTest('expected warning message on ignore_missing True'):
+            expected_stdout = (
+                'WARNING: 240101 could not be found, skipping to '
+                'not raise an exception'
+            )
+
+            utils.call_in_parallel(
+                func=utils.date_str_to_datetime,
+                items=['240101'],
+                ignore_missing=True
+            )
+
+            assert expected_stdout in self.capsys.readouterr().out
 
 
 class TestDateStrToDatetime(unittest.TestCase):
