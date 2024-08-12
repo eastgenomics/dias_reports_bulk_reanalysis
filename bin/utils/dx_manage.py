@@ -400,7 +400,7 @@ def get_launched_workflow_ids(batch_ids) -> Union[list, list]:
 
     # the only single jobs *should* be eggd_artemis here since we aren't
     # running CNV calling, split this from the reports jobs
-    artemis_jobs = [x for x in report_jobs if x.get('name') == 'eggd_artemis']
+    artemis_jobs = [x for x in report_jobs if x.startswith('job-')]
     report_jobs = [x for x in report_jobs if x.startswith('analysis-')]
 
     return artemis_jobs, report_jobs
