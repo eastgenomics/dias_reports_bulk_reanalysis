@@ -13,7 +13,7 @@ import dxpy
 import pandas as pd
 
 
-def call_in_parallel(func, items, ignore_missing=True, **kwargs) -> list:
+def call_in_parallel(func, items, ignore_missing=False, **kwargs) -> list:
     """
     Calls the given function in parallel using concurrent.futures on
     the given set of items (i.e for calling dxpy.describe() on multiple
@@ -438,6 +438,7 @@ def filter_reports_with_variants(reports, report_field) -> list:
     xlsx_details = call_in_parallel(
         dxpy.describe,
         xlsx_report_ids,
+        ignore_missing=True,
         fields={'details'},
         default_fields=True
     )

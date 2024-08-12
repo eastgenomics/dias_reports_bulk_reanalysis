@@ -750,6 +750,7 @@ def download_all_reports(log_file, output_path) -> None:
         call_in_parallel(
             download_single_file,
             snv_ids + cnv_ids + artemis_links_ids + multiqc_ids,
+            ignore_missing=True,
             project=project_id,
             path=project_path
         )
