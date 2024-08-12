@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 from uuid import uuid4
 
+import dxpy
 import pandas as pd
 import pytest
 
@@ -21,6 +22,11 @@ class TestCallInParallel(unittest.TestCase):
     the function for each item in parallel. This is primarily used for
     querying dxpy in parallel.
     """
+    @pytest.fixture(autouse=True)
+    def capsys(self, capsys):
+        """Capture stdout to provide it to tests"""
+        self.capsys = capsys
+
 
     @patch('bin.utils.utils.date_str_to_datetime')
     def test_number_of_calls(self, mock_date):
@@ -68,6 +74,32 @@ class TestCallInParallel(unittest.TestCase):
 
         with pytest.raises(AssertionError, match='test internal error'):
             utils.call_in_parallel(utils.date_str_to_datetime, ['230101'])
+
+
+    @patch('bin.utils.utils.date_str_to_datetime')
+    def test_resource_not_found_exception_correctly_ignored(self, mock_date):
+        """
+        Test that if the called function raises a
+        dxpy.exceptions.ResourceNotFound error that the function
+        correctly prints a warning and continues without actually
+        raising the exception
+        """
+        mock_date.side_effect = dxpy.exceptions.ResourceNotFound(
+            content={'error': {'type': 'foo', 'message': 'bar'}},
+            code=1
+        )
+
+        # this should not raise an error
+        utils.call_in_parallel(utils.date_str_to_datetime, ['240101'])
+
+        expected_stdout = (
+            'WARNING: 240101 could not be found, skipping to '
+            'not raise an exception'
+        )
+
+        assert expected_stdout in self.capsys.readouterr().out, (
+            'expected warning message incorrect'
+        )
 
 
 class TestDateStrToDatetime(unittest.TestCase):
