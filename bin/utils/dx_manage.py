@@ -220,11 +220,19 @@ def download_single_file(dxid, project, path) -> None:
     path : str
         path to download file to
     """
-    dxpy.bindings.dxfile_functions.download_dxfile(
-        dxid,
-        os.path.join(path, dxpy.describe(dxid).get('name')),
-        project=project
-    )
+    try:
+        dxpy.bindings.dxfile_functions.download_dxfile(
+            dxid,
+            os.path.join(path, dxpy.describe(dxid).get('name')),
+            project=project
+        )
+    except dxpy.exceptions.ResourceNotFound:
+        # exception raised when file has been deleted, let anything else
+        # continue to raise and exit
+        print(
+            f'WARNING: {dxid} could not be found (assumed deleted)m skipping '
+            'downloading file'
+        )
 
 
 def create_folder(project, path) -> None:
