@@ -188,9 +188,9 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
                 manual_review[project_id]['cnv_call'] = 'No CNV call job found'
             else:
                 print(
-                    'WARNING: no CNV calling job found for '
+                    '\nWARNING: no CNV calling job found for '
                     f'{project_data["project_name"]} ({project_id}), '
-                    'continuing with job launching since this is for WES'
+                    'continuing with job launching since this is for WES\n'
                 )
         elif len(cnv_jobs) > 1:
             # unhandled multiple CNV call job => throw in error bucket
