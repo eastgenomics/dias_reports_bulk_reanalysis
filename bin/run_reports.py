@@ -48,6 +48,7 @@ from utils.utils import (
     parse_clarity_export,
     parse_sample_identifiers,
     validate_test_codes,
+    write_manifest,
     write_to_log,
     read_from_log
 )
@@ -276,48 +277,6 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
         exit()
 
     return project_samples
-
-
-def write_manifest(project_name, sample_data, now) -> List[dict]:
-    """
-    Write Epic manifest file of all samples for given project
-
-    Parameters
-    ----------
-    project_name : str
-        name of project for naming manifest
-    sample_data : list
-        list of dicts of sample data (IDs and test code(s))
-    now : str
-        current datetime for naming
-
-    Returns
-    -------
-    str
-        file name of manifest generated
-    """
-    print(f"\nGenerating manifest data for {len(sample_data)} samples")
-
-    manifest = f"{project_name}-{now}_re_run.manifest"
-    count = 0
-
-    with open(manifest, "w") as fh:
-        fh.write(
-            "batch\nInstrument ID;Specimen ID;Re-analysis Instrument ID;"
-            "Re-analysis Specimen ID;Test Codes\n"
-        )
-
-        for sample in sample_data:
-            for code in sample['codes']:
-                fh.write(
-                    f"{sample['instrument_id']};{sample['specimen_id']}"
-                    f";;;{code}\n"
-                )
-                count += 1
-
-    print(f"{count} sample - test codes written to file {manifest}")
-
-    return manifest
 
 
 def run_all_batch_jobs(args, all_sample_data) -> list:

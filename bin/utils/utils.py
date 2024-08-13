@@ -7,7 +7,7 @@ from datetime import datetime
 import json
 from os import path
 import re
-from typing import Union
+from typing import List, Union
 
 import dxpy
 import pandas as pd
@@ -735,6 +735,48 @@ def validate_test_codes(all_sample_data, genepanels) -> None:
         print("All sample test codes valid!")
 
     return valid, invalid
+
+
+def write_manifest(project_name, sample_data, now) -> List[dict]:
+    """
+    Write Epic manifest file of all samples for given project
+
+    Parameters
+    ----------
+    project_name : str
+        name of project for naming manifest
+    sample_data : list
+        list of dicts of sample data (IDs and test code(s))
+    now : str
+        current datetime for naming
+
+    Returns
+    -------
+    str
+        file name of manifest generated
+    """
+    print(f"\nGenerating manifest data for {len(sample_data)} samples")
+
+    manifest = f"{project_name}-{now}_reanalysis.manifest"
+    count = 0
+
+    with open(manifest, "w") as fh:
+        fh.write(
+            "batch\nInstrument ID;Specimen ID;Re-analysis Instrument ID;"
+            "Re-analysis Specimen ID;Test Codes\n"
+        )
+
+        for sample in sample_data:
+            for code in sample['codes']:
+                fh.write(
+                    f"{sample['instrument_id']};{sample['specimen_id']}"
+                    f";;;{code}\n"
+                )
+                count += 1
+
+    print(f"{count} sample - test codes written to file {manifest}")
+
+    return manifest
 
 
 def write_to_log(log_file, key, job_ids) -> None:
