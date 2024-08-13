@@ -1665,6 +1665,64 @@ class TestValidateTestCodes(unittest.TestCase):
             assert '111111-23251R0041' not in samples
 
 
+class TestWriteManifest(unittest.TestCase):
+    """
+    Tests for utils.write_manifest
+
+    Function writes an Epic style manifest for running with Dias batch
+    """
+    def test_contents_written_as_expected(self):
+        """
+        Test that the file contents are written as expected form the
+        given sample data
+        """
+        sample_data = [
+            {
+                'instrument_id': '111111',
+                'specimen_id': '222R2222',
+                'codes': [
+                    'R123.1',
+                    'R456.2'
+                ]
+            },
+            {
+                'instrument_id': '333333',
+                'specimen_id': '444R4444',
+                'codes': [
+                    'R789.1',
+                    'HGNC:1234'
+                ]
+            }
+        ]
+
+        expected_contents = [
+            "batch\n",
+           (
+            "Instrument ID;Specimen ID;Re-analysis Instrument ID;"
+           "Re-analysis Specimen ID;Test Codes\n"
+           ),
+           "111111;222R2222;;;R123.1\n",
+           "111111;222R2222;;;R456.2\n",
+           "333333;444R4444;;;R789.1\n",
+           "333333;444R4444;;;HGNC:1234\n"
+        ]
+
+        manifest = utils.write_manifest(
+            project_name='test',
+            sample_data=sample_data,
+            now='240813'
+        )
+
+        with open(manifest, 'r') as fh:
+            written_contents = fh.readlines()
+
+        os.remove(manifest)
+
+        assert expected_contents == written_contents, (
+            'Manifest contents not as expected'
+        )
+
+
 class TestWriteToLog(unittest.TestCase):
     """
     Tests for utils.write_to_log
