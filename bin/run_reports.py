@@ -546,7 +546,7 @@ def parse_args() -> argparse.Namespace:
     )
     reanalysis_parser.add_argument(
         "--monitor",
-        type=bool,
+        action='store_true',
         default=True,
         help=(
             "Controls if to monitor and report on state of launched "
