@@ -181,7 +181,18 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
             single_path=dias_single_paths[0]
         )
 
-        if len(cnv_jobs) > 1:
+        if len(cnv_jobs) == 0:
+            # no CNV reports, raise error if this is for CEN, print
+            # warning if this is WES (for now)
+            if assay == 'CEN':
+                manual_review[project_id]['cnv_call'] = 'No CNV call job found'
+            else:
+                print(
+                    '\nWARNING: no CNV calling job found for '
+                    f'{project_data["project_name"]} ({project_id}), '
+                    'continuing with job launching since this is for WES\n'
+                )
+        elif len(cnv_jobs) > 1:
             # unhandled multiple CNV call job => throw in error bucket
             manual_review[project_id]['cnv_call'] = cnv_jobs
         else:
@@ -226,8 +237,8 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
 
             if issues.get('cnv_call'):
                 print(
-                    "\tProject has more than one CNV call job and is not "
-                    f"specified in config: {issues.get('cnv_call')}"
+                    "\tProject has not got a single CNV calling job and is "
+                    f"not specified in config: {issues.get('cnv_call')}"
                 )
 
             if issues.get('dias_single'):
@@ -362,7 +373,7 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
         batch_id = run_batch(
             project=batch_project,
             batch_app_id=batch_app_id,
-            cnv_job=project_data['cnv_call_job_id'],
+            cnv_job=project_data.get('cnv_call_job_id'),
             single_path=project_data['dias_single'],
             manifest=manifest_id,
             multiqc_report_id=project_data['multiqc'],
