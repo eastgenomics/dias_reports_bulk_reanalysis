@@ -634,7 +634,7 @@ def run_batch(
         "snv_reports": True,
         "artemis": True,
         "manifest_files": [{"$dnanexus_link": manifest}],
-        "multiqc_report": [{"$dnanexus_link": multiqc_report_id}],
+        "multiqc_report": {"$dnanexus_link": multiqc_report_id},
         "single_output_dir": single_path,
         "assay": assay,
         "testing": terminate,
