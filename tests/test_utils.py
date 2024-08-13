@@ -889,6 +889,201 @@ class TestLimitSamples(unittest.TestCase):
             assert expected_stdout in self.capsys.readouterr().out
 
 
+@patch('bin.utils.utils.call_in_parallel')
+class TestFilterReportsWithVariants(unittest.TestCase):
+    """
+    Tests for utils.filter_reports_with_variants
+
+    Function queries the number of variants in specified xlsx reports
+    using the details metadata (either from the include or variants
+    field) to return file IDs of reports with one or more variants
+    filtered in
+    """
+    def test_zero_variants_filtered_out(self, mock_describe):
+        """
+        Test that reports with no variants are not returned and those
+        with variants are returned
+        """
+        # return of describing report file IDs parsed from input
+        # analysis details provided as input
+        mock_describe.return_value = [
+            {
+                'id': 'file-xxx',
+                'project': 'project-xxx',
+                'details': {
+                    'included': 1
+                }
+            },
+            {
+                'id': 'file-yyy',
+                'project': 'project-xxx',
+                'details': {
+                    'included': 0
+                }
+            },
+        ]
+
+        # details of run analysis jobs to pass to function
+        report_details = [
+            {
+                'id': 'analysis-xxx',
+                'project': 'project-xxx',
+                'output': {
+                    'stage-rpt_generate_workbook.xlsx_report': {
+                        '$dnanexus_link': 'file-xxx'
+                    }
+                }
+            },
+            {
+                'id': 'analysis-yyy',
+                'project': 'project-xxx',
+                'output': {
+                    'stage-rpt_generate_workbook.xlsx_report': {
+                        '$dnanexus_link': 'file-yyy'
+                    }
+                }
+            }
+        ]
+
+        # calling function we expect to only return file-xxx that has
+        # filtered in variants
+        returned_file_ids = utils.filter_reports_with_variants(
+            reports=report_details,
+            report_field='stage-rpt_generate_workbook.xlsx_report'
+        )
+
+        assert returned_file_ids == ['file-xxx'], (
+            'reports with no variants not correctly filtered out'
+        )
+
+
+    def test_only_reports_from_specified_output_field_returned(self, mock_describe):
+        """
+        Test that reports are only returned for the given report_field.
+
+        The report_field param is used to select the correct output field,
+        and is used to differentiate between selecting for SNV and CNV
+        reports workflows.
+        """
+        # return of describing report file IDs parsed from input
+        # analysis details provided as input
+        mock_describe.return_value = [
+            {
+                'id': 'file-xxx',
+                'project': 'project-xxx',
+                'details': {
+                    'included': 1
+                }
+            },
+            {
+                'id': 'file-yyy',
+                'project': 'project-xxx',
+                'details': {
+                    'included': 2
+                }
+            },
+        ]
+
+        # details of run analysis jobs to pass to function
+        report_details = [
+            {
+                'id': 'analysis-xxx',
+                'project': 'project-xxx',
+                'output': {
+                    'stage-rpt_generate_workbook.xlsx_report': {
+                        '$dnanexus_link': 'file-xxx'
+                    }
+                }
+            },
+            {
+                'id': 'analysis-yyy',
+                'project': 'project-xxx',
+                'output': {
+                    'stage-cnv_generate_workbook.xlsx_report': {
+                        '$dnanexus_link': 'file-yyy'
+                    }
+                }
+            }
+        ]
+
+        # we expect to only return file-yyy since we are selecting for
+        # CNV reports with variants
+        returned_file_ids = utils.filter_reports_with_variants(
+            reports=report_details,
+            report_field='stage-cnv_generate_workbook.xlsx_report'
+        )
+
+        assert returned_file_ids == ['file-yyy'], (
+            'reports not correctly selected by report_field param'
+        )
+
+
+    def test_coverage_report_file_ids_returned_with_xlsx_ids(self, mock_describe):
+        """
+        Test that for variant reports we filter in from having variants
+        included that we also bring the coverage reports
+        """
+        # return of describing report file IDs parsed from input
+        # analysis details provided as input
+        mock_describe.return_value = [
+            {
+                'id': 'file-xxx',
+                'project': 'project-xxx',
+                'details': {
+                    'included': 1
+                }
+            },
+            {
+                'id': 'file-yyy',
+                'project': 'project-xxx',
+                'details': {
+                    'included': 0
+                }
+            },
+        ]
+
+        # details of run analysis jobs to pass to function
+        report_details = [
+            {
+                'id': 'analysis-xxx',
+                'project': 'project-xxx',
+                'output': {
+                    'stage-rpt_generate_workbook.xlsx_report': {
+                        '$dnanexus_link': 'file-xxx'
+                    },
+                    'stage-rpt_athena.report': {
+                        '$dnanexus_link': 'file-aaa'
+                    }
+                }
+            },
+            {
+                'id': 'analysis-yyy',
+                'project': 'project-xxx',
+                'output': {
+                    'stage-rpt_generate_workbook.xlsx_report': {
+                        '$dnanexus_link': 'file-yyy'
+                    },
+                    'stage-rpt_athena.report': {
+                        '$dnanexus_link': 'file-bbb'
+                    }
+                }
+            }
+        ]
+
+        # we expect just the following variant and coverage report due
+        # to the other having zero variants
+        expected_return = ['file-xxx', 'file-aaa']
+
+        returned_file_ids = utils.filter_reports_with_variants(
+            reports=report_details,
+            report_field='stage-rpt_generate_workbook.xlsx_report'
+        )
+
+        assert returned_file_ids == expected_return, (
+            'variant and coverage report IDs not returned as expected'
+        )
+
+
 class TestParseConfig(unittest.TestCase):
     """
     Tests for utils.parse_config
