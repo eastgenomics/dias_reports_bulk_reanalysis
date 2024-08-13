@@ -7,7 +7,7 @@ from datetime import datetime
 import json
 from os import path
 import re
-from typing import Union
+from typing import List, Union
 
 import dxpy
 import pandas as pd
@@ -757,7 +757,7 @@ def write_manifest(project_name, sample_data, now) -> List[dict]:
     """
     print(f"\nGenerating manifest data for {len(sample_data)} samples")
 
-    manifest = f"{project_name}-{now}_re_run.manifest"
+    manifest = f"{project_name}-{now}_reanalysis.manifest"
     count = 0
 
     with open(manifest, "w") as fh:
