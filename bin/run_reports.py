@@ -670,7 +670,8 @@ def download_all_reports(log_file, output_path) -> None:
 
     print(
         f"{len(launched_job_ids)} jobs from {len(batch_job_ids)} dias batch "
-        f"jobs to download output reports from...\n"
+        f"jobs to download output reports from. Checking details of all "
+        "launched jobs...\n"
     )
 
     job_details = call_in_parallel(dxpy.describe, launched_job_ids)
@@ -688,8 +689,14 @@ def download_all_reports(log_file, output_path) -> None:
 
     project_job_details = group_dx_objects_by_project(job_details)
 
+    count = 0
+
     for project_id, project_data in project_job_details.items():
-        print(f"\nDownloading files for {project_data['project_name']}")
+        count += 1
+        print(
+            f"\n[{count}/{len(project_job_details.keys())}] Downloading "
+            f"files for {project_data['project_name']} ({project_id})\n"
+        )
 
         snv_report_jobs = [
             x for x in project_data['items'] if x['id'].startswith('analysis-')
@@ -700,7 +707,7 @@ def download_all_reports(log_file, output_path) -> None:
             and 'dias_cnvreports' in x['executableName']
         ]
         artemis_jobs = [
-            x for x in project_data['items'] if x['id'].startswith('job-')
+            x for x in project_data['items'] if x['name'] == 'eggd_artemis'
         ]
 
         # get just snv and cnv reports (plus coverage reports) for reports
@@ -749,6 +756,7 @@ def download_all_reports(log_file, output_path) -> None:
         call_in_parallel(
             download_single_file,
             snv_ids + cnv_ids + artemis_links_ids + multiqc_ids,
+            ignore_missing=True,
             project=project_id,
             path=project_path
         )
