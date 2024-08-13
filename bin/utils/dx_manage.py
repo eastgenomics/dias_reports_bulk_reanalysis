@@ -588,6 +588,7 @@ def run_batch(
     cnv_job,
     single_path,
     manifest,
+    multiqc_report_id,
     name,
     batch_inputs,
     assay,
@@ -608,6 +609,8 @@ def run_batch(
         path to Dias single output
     manifest : str
         file ID of uploaded manifest
+    multiqc_report_id : str
+        file ID of multiQC report to pass to eggd_artemis
     name : str
         name to use for batch job
     batch_inputs : dict
@@ -631,6 +634,7 @@ def run_batch(
         "snv_reports": True,
         "artemis": True,
         "manifest_files": [{"$dnanexus_link": manifest}],
+        "multiqc_report": {"$dnanexus_link": multiqc_report_id},
         "single_output_dir": single_path,
         "assay": assay,
         "testing": terminate,

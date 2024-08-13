@@ -365,6 +365,7 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
             cnv_job=project_data['cnv_call_job_id'],
             single_path=project_data['dias_single'],
             manifest=manifest_id,
+            multiqc_report_id=project_data['multiqc'],
             name=name,
             batch_inputs=args.batch_inputs,
             assay=args.assay,
@@ -545,7 +546,7 @@ def parse_args() -> argparse.Namespace:
     )
     reanalysis_parser.add_argument(
         "--monitor",
-        type=bool,
+        action='store_true',
         default=True,
         help=(
             "Controls if to monitor and report on state of launched "

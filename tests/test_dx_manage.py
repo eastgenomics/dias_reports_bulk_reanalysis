@@ -1131,6 +1131,7 @@ class TestRunBatch(unittest.TestCase):
             'batch_app_id': 'app-xxx',
             'single_path': '/output',
             'manifest': 'file-xxx',
+            'multiqc_report_id': 'file-yyy',
             'name': 'dias_batch',
             'batch_inputs': {},
             'assay': 'test',
@@ -1162,6 +1163,7 @@ class TestRunBatch(unittest.TestCase):
             'batch_app_id': 'app-xxx',
             'single_path': '/output',
             'manifest': 'file-xxx',
+            'multiqc_report_id': 'file-yyy',
             'name': 'dias_batch',
             'assay': 'test',
             'terminate': False
