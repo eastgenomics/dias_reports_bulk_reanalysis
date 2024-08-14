@@ -140,17 +140,29 @@ job-Gp3vXPQ4BgGVFxJ76VG89ZbG    done
 job-GpFk6pj4z9pgpy7pKGx44KP3    done
 ```
 
-* check the state of dias_reports jobs:
+* check the state of all jobs launched by the dias batch jobs in the log file:
 ```
-$ jq -r '.dias_reports[]' launched_jobs_240729_1035_log.json | xargs -P16 -I{} sh -c "dx describe --json {} | jq -r '[.id,.state] | @tsv'"
-analysis-GpP4gy049kjfgJ290YPG803B       done
-analysis-GpP4gxQ49kjfgJ290YPG8030       done
-analysis-GpP4gx849kjX9bjk9XjF6K8q       done
-analysis-GpP4gy849kjxGY2YGy7117B2       done
-```
-
-* check the state of eggd_artemis jobs:
-```
-$ jq -r '.eggd_artemis[]' launched_jobs_240729_1035_log.json | xargs -P16 -I{} sh -c "dx describe --json {} | jq -r '[.id,.state] | @tsv'"
-job-GpFp6v84z9pYz690YgkP7JJX    done
+$ xargs -P32 -n1 -I{} bash -c 'dx describe --json {} | jq -r "[.id,.state] | @tsv"' <<< $(jq -r '.dias_batch[]' launched_jobs_240808_1311_log.json | xargs -P32 -I{} dx describe --json {} | jq -r '.output.launched_jobs' | sed 's/,/\n/g') | sort -k2
+analysis-GppFKxj45jXXZQJYP5y39YqV       done
+analysis-GppFKy845jXyJpJXPzq06YYz       done
+analysis-GppFKyQ45jXQJQyy3KZKZ0QP       done
+analysis-GppFKz045jXyJpJXPzq06YZP       done
+analysis-GppFP0045jXYZPg13B3B0fZz       done
+analysis-GppFP0845jXy2qx9qv109FY7       done
+analysis-GppFP0j45jXyJpJXPzq06Yb6       done
+analysis-GppFP1045jXbyF1K93PJKkQG       done
+analysis-GppFP1045jXx3ZFz0389KXq2       done
+analysis-GppFP1845jXzYP89kqx0gXbg       done
+analysis-GppFP1j45jXVbpQf5G3BZ4fF       done
+analysis-GppFP2045jXy6XB5ZGF168jG       done
+analysis-GppFP2Q45jXVbpQf5G3BZ4fg       done
+analysis-GppFP3045jXzYP89kqx0gXf9       done
+analysis-GppFP3j45jXV62JYkGg3j03J       done
+analysis-GppFP4845jXbyF1K93PJKkVY       done
+analysis-GppFP4Q45jXzYP89kqx0gXkP       done
+analysis-GppFP5045jXV62JYkGg3j03z       done
+analysis-GppFP5845jXbyF1K93PJKkX6       done
+analysis-GppFP5j45jXzYP89kqx0gXkv       done
+job-GppFP1Q45jXXZQJYP5y39Yvj    failed
+job-GppFP6045jXgg95vvYkJqGJ5    failed
 ```
