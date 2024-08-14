@@ -147,7 +147,7 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
 
         invalid_test_log = path.abspath(path.join(
             path.dirname(path.abspath(__file__)),
-            f"../../logs/{invalid_test_log}"
+            f"../logs/{invalid_test_log}"
         ))
 
         with open(invalid_test_log, 'w') as fh:
