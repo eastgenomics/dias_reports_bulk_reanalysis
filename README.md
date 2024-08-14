@@ -16,11 +16,11 @@ Once jobs are launched, the state of these jobs will be monitored and printed to
 
 ### Downloading outputs
 
-Once reanalysis has been run and all jobs completed, the output reports may be downloaded by running in download mode, and providing the JSON log file with launched job IDs in as input. This will group up all launched jobs by project, and download the xlsx reports, coverage reports, eggd_artemis file and input multiQC file (if available) to run specific directories. Any reports with no variants in the include tab will be skipped and not downloaded.
-
+Once reanalysis has been run and all jobs completed, the output reports may be downloaded by running in download mode, and providing the JSON log file with launched job IDs in as input. This will group up all launched jobs by project, and download the xlsx reports, coverage reports, eggd_artemis file and input multiQC file (if available) to run specific directories. Any reports with no variants in the include tab will be skipped and not downloaded. If any jobs are still in progress this will print a warning and exit without downloading. If any jobs have failed, this will print a warning for those jobs and downloading for successful jobs will continue.
 
 ### Usage
 
+#### Locally
 - To run reanalysis:
 ```
 python3 bin/run_reports.py reanalysis --assay CEN --clarity_export <export.xlsx>
@@ -30,6 +30,43 @@ To download output reports:
 ```
 python3 bin/run_reports.py download --job_log launched_jobs_240801_log.json --path output/
 ```
+
+#### Docker
+
+Building the Docker image from the included Docker file may be done with:
+```
+docker built -t <image_name>:<image_tag>
+```
+
+Running from the built Docker image requires mounting both the `log/` directory and clarity export file for reanalysis, and `output/` directory for downloading output reports, from the container to the host. This is so that when the reanalysis / download completes the log / output files are available outside of the container.
+
+Example command for running reanalysis:
+```
+docker run \
+    -v $(pwd)/<clarity_export_xlsx>:/reanalysis/clarity_export.xlsx \
+    -v $(pwd):/reanalysis/logs \
+    <image_name>:<image_tag> bin/run_reports.py reanalysis \
+        --clarity_export clarity_export.xlsx \
+        --assay CEN \
+        --monitor
+```
+* the working directory in the image is set to `/reanalysis` which contains `bin/` and `logs/` etc
+* the clarity export xlsx file `<clarity_export.xlsx>` needs mounting into the container
+* the directory for output log file needs mounting in to the container to retain the log file with launched batch IDs for downloading later
+
+
+Example command for downloading outputs once jobs complete:
+```
+docker run \
+    -v $(pwd):/reanalysis/logs \
+    -v <local_output_path>:/reanalysis/output
+    <image_name>:<image_tag> bin/run_reports.py download \
+        --job_log logs/<log_file_from_reanalysis> \
+        --path output/
+```
+* the same log file as specified for mounting in the log file should be specified again
+* the log file output with launched jobs should be passed from the `logs/` directory if mounted as above
+* `<local_output_path>` should be set for specifying where to download reports outside of the container
 
 
 ### Inputs
