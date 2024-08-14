@@ -89,7 +89,6 @@ Reanalysis inputs:
 * `--monitor` (optional): Controls if to monitor and report on state of launched dias batch jobs
 
 
-
 Download inputs:
 * `--job_log`: json log file output from running reanalysis
 * `--path`: parent directory in which to download sub directories per run of output reports
@@ -121,6 +120,8 @@ The log file is structured as follows:
 ```
 
 For any samples with invalid test code(s), these will print a warning to stdout during running and also be written to a JSON log file to review after (named as `{yymmdd_hhmm}_invalid_test_codes.json`).
+
+Both files will always be output to the `logs/` directory.
 
 ### Example useful commands to query the log file:
 
