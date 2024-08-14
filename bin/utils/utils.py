@@ -430,9 +430,11 @@ def filter_reports_with_variants(reports, report_field) -> list:
     """
     # get the xlsx report file IDs to find those containing filtered
     # variants by using the 'included' key in the details metadata,
+    # first filtering out jobs with no output
     xlsx_report_ids = [
-        job.get('output', {}).get(report_field, {}).get('$dnanexus_link')
-        for job in reports if job.get('output', {}).get(report_field, {})
+        job.get('output').get(report_field).get('$dnanexus_link')
+        for job in reports
+        if job.get('output') and job.get('output').get(report_field)
     ]
 
     xlsx_details = call_in_parallel(
@@ -454,8 +456,8 @@ def filter_reports_with_variants(reports, report_field) -> list:
     # to just download both the xlsx and coverage reports for those
     workflows_w_variants = [
         x for x in reports
-        if x['output'].get(report_field, {}).get(
-            '$dnanexus_link') in xlsx_w_variants
+        if x.get('output') and x.get('output').get(
+            report_field, {}).get('$dnanexus_link') in xlsx_w_variants
     ]
 
     # get the file IDs of our output files to download
