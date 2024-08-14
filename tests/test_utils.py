@@ -1135,6 +1135,56 @@ class TestFilterReportsWithVariants(unittest.TestCase):
         )
 
 
+    def test_workflow_with_no_output_passes(self, mock_describe):
+        """
+        Test that when a workflow has no output (i.e. output is None)
+        that it does not raise an error
+        """
+                # return of describing report file IDs parsed from input
+        # analysis details provided as input
+        mock_describe.return_value = [
+            {
+                'id': 'file-xxx',
+                'project': 'project-xxx',
+                'details': {
+                    'included': 1
+                }
+            },
+            {
+                'id': 'file-yyy',
+                'project': 'project-xxx',
+                'details': {
+                    'included': 0
+                }
+            },
+        ]
+
+        # details of run analysis jobs to pass to function
+        report_details = [
+            {
+                'id': 'analysis-xxx',
+                'project': 'project-xxx',
+                'output': {
+                    'stage-rpt_generate_workbook.xlsx_report': {
+                        '$dnanexus_link': 'file-xxx'
+                    }
+                }
+            },
+            {
+                'id': 'analysis-yyy',
+                'project': 'project-xxx',
+                'output': None
+            }
+        ]
+
+        returned_file_ids = utils.filter_reports_with_variants(
+            reports=report_details,
+            report_field='stage-rpt_generate_workbook.xlsx_report'
+        )
+
+        assert returned_file_ids == ['file-xxx']
+
+
 class TestParseConfig(unittest.TestCase):
     """
     Tests for utils.parse_config
