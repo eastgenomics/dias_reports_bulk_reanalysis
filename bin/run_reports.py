@@ -548,7 +548,7 @@ def parse_args() -> argparse.Namespace:
             args = verify_batch_inputs_argument(args)
 
     input_str = '\n\t'.join(f"{k} : {v}" for k, v in args.__dict__.items())
-    print(f"Specified arguments:\n\t{input_str}\n")
+    print(f"\nSpecified arguments:\n\t{input_str}\n")
 
     return args
 
