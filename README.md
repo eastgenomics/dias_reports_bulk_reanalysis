@@ -40,18 +40,24 @@ docker built -t <image_name>:<image_tag>
 
 Running from the built Docker image requires mounting both the `log/` directory and clarity export file for reanalysis, and `output/` directory for downloading output reports, from the container to the host. This is so that when the reanalysis / download completes the log / output files are available outside of the container.
 
+For running reanalysis, it requires confirming if to run all jobs from a user prompt. Therefore this requires first opening a shell interactively in the container, then running the reanalysis command to be able to confirm launching jobs (see example below). Once reanalysis has been launched the container may be exited by simply running `exit`. This is not required for downloading as this has no user prompt.
+
 In addition, access to DNAnexus is required. One way to achieve this is to export the current dx security context as environment variables into the Docker container. This can be done with the following line: `--env-file <(dx env --bash | sed -e "s/export//g" -e "s/'//g")`. This gets the current set security context from the host using `dx env` and formats it as required for passing as an environment 'file' for Docker.
 
 Example command for running reanalysis:
 ```
-docker run \
+# get interactive shell in the container
+$ docker run \
     --env-file <(dx env --bash | sed -e "s/export//g" -e "s/'//g") \
     -v $(pwd)/<clarity_export_xlsx>:/reanalysis/clarity_export.xlsx \
     -v $(pwd):/reanalysis/logs \
-    <image_name>:<image_tag> python3 bin/run_reports.py reanalysis \
-        --clarity_export clarity_export.xlsx \
-        --assay CEN \
-        --monitor
+    <image_name>:<image_tag>
+
+# run reanalysis as would be done locally
+python3 bin/run_reports.py reanalysis \
+    --clarity_export clarity_export.xlsx \
+    --assay CEN \
+    --monitor
 ```
 * the working directory in the image is set to `/reanalysis` which contains `bin/` and `logs/` etc
 * the clarity export xlsx file `<clarity_export.xlsx>` needs mounting into the container
