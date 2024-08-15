@@ -9,5 +9,5 @@ COPY . /reanalysis
 
 RUN mkdir -p output/ logs/
 
-# display help if no args sepcified
+# display help if no args specified
 CMD bin/run_reports.py --help
