@@ -147,7 +147,7 @@ def configure_inputs(clarity_data, assay, limit, start_date, end_date, unarchive
 
         invalid_test_log = path.abspath(path.join(
             path.dirname(path.abspath(__file__)),
-            f"../../logs/{invalid_test_log}"
+            f"../logs/{invalid_test_log}"
         ))
 
         with open(invalid_test_log, 'w') as fh:
@@ -548,7 +548,7 @@ def parse_args() -> argparse.Namespace:
             args = verify_batch_inputs_argument(args)
 
     input_str = '\n\t'.join(f"{k} : {v}" for k, v in args.__dict__.items())
-    print(f"Specified arguments:\n\t{input_str}\n")
+    print(f"\nSpecified arguments:\n\t{input_str}\n")
 
     return args
 
