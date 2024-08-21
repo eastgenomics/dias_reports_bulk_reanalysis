@@ -307,7 +307,7 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
         if args.test_project:
             batch_project = args.test_project
         else:
-            batch_project = project["id"]
+            batch_project = project
 
         manifest = write_manifest(
             sample_data=project_data['samples'],
