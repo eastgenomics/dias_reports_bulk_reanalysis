@@ -310,12 +310,14 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
             batch_project = project
 
         if args.strip_test_codes:
+            codes_project, codes_file = args.strip_test_codes.split(':')
             dxpy.bindings.dxfile_functions.download_dxfile(
-                args.strip_test_codes,
-                "codes.txt"
+                codes_file,
+                "codes.txt",
+                project=codes_project
             )
             with open("codes.txt") as f:
-                codes_to_strip = f.readlines()
+                codes_to_strip = f.read().splitlines()
             remove("codes.txt")
         else:
             codes_to_strip = []
@@ -536,12 +538,12 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     reanalysis_parser.add_argument(
-        "--strip_test_codes",
+        "--ignore_test_codes",
         type=str,
         help=(
             "DNAnexus file ID of file containing test codes to ignore and not "
             "add to the manifest. Each line of the file should contain a test "
-            "code."
+            "code. Should be in the format project-123456:file-123456"
         ),
     )
 
