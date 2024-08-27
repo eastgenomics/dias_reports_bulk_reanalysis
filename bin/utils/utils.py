@@ -739,7 +739,7 @@ def validate_test_codes(all_sample_data, genepanels) -> None:
     return valid, invalid
 
 
-def write_manifest(project_name, sample_data, now) -> List[dict]:
+def write_manifest(project_name, sample_data, now, ignore_codes) -> List[dict]:
     """
     Write Epic manifest file of all samples for given project
 
@@ -751,6 +751,8 @@ def write_manifest(project_name, sample_data, now) -> List[dict]:
         list of dicts of sample data (IDs and test code(s))
     now : str
         current datetime for naming
+    ignore_codes : list
+        list of test codes to ignore and not add to the manifest
 
     Returns
     -------
@@ -769,7 +771,8 @@ def write_manifest(project_name, sample_data, now) -> List[dict]:
         )
 
         for sample in sample_data:
-            for code in sample['codes']:
+            codes = [x for x in sample['codes'] if x not in ignore_codes]
+            for code in codes:
                 fh.write(
                     f"{sample['instrument_id']};{sample['specimen_id']}"
                     f";;;{code}\n"

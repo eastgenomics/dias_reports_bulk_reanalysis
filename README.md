@@ -93,6 +93,7 @@ Reanalysis inputs:
 * `--test_project` (optional): DNAnexus project ID in which to launch dias batch, if not specified will launch in original 002 projects
 * `--terminate` (optional): Controls if to terminate all analysis jobs dias batch launched
 * `--monitor` (optional): Controls if to monitor and report on state of launched dias batch jobs
+* `--ignore_test_codes` (optional): DNAnexus file ID of file containing test codes to be ignored and not added to the manifest, if present in clarity extract. Should be in the format `project-123456:file-123456`
 
 
 Download inputs:

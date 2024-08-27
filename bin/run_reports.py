@@ -8,7 +8,7 @@ import argparse
 from collections import Counter, defaultdict
 from datetime import datetime
 import json
-from os import makedirs, path
+from os import makedirs, path, remove
 from time import sleep
 from typing import List
 
@@ -309,10 +309,24 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
         else:
             batch_project = project
 
+        if args.ignore_test_codes:
+            codes_project, codes_file = args.ignore_test_codes.split(':')
+            dxpy.bindings.dxfile_functions.download_dxfile(
+                codes_file,
+                "codes.txt",
+                project=codes_project
+            )
+            with open("codes.txt") as f:
+                codes_to_strip = f.read().splitlines()
+            remove("codes.txt")
+        else:
+            codes_to_strip = []
+
         manifest = write_manifest(
             sample_data=project_data['samples'],
             project_name=project_data['project_name'],
-            now=now
+            now=now,
+            ignore_codes=codes_to_strip
         )
 
         create_folder(
@@ -521,6 +535,15 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Controls if to monitor and report on state of launched "
             "dias batch jobs"
+        ),
+    )
+    reanalysis_parser.add_argument(
+        "--ignore_test_codes",
+        type=str,
+        help=(
+            "DNAnexus file ID of file containing test codes to ignore and not "
+            "add to the manifest. Each line of the file should contain a test "
+            "code. Should be in the format project-123456:file-123456"
         ),
     )
 

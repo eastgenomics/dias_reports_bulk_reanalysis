@@ -1732,6 +1732,7 @@ class TestWriteManifest(unittest.TestCase):
                 'specimen_id': '222R2222',
                 'codes': [
                     'R123.1',
+                    'R123.2',
                     'R456.2'
                 ]
             },
@@ -1744,6 +1745,8 @@ class TestWriteManifest(unittest.TestCase):
                 ]
             }
         ]
+
+        ignore_codes = ["R123.2"]
 
         expected_contents = [
             "batch\n",
@@ -1760,7 +1763,8 @@ class TestWriteManifest(unittest.TestCase):
         manifest = utils.write_manifest(
             project_name='test',
             sample_data=sample_data,
-            now='240813'
+            now='240813',
+            ignore_codes=ignore_codes
         )
 
         with open(manifest, 'r') as fh:
