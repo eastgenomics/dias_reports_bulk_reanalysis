@@ -309,8 +309,8 @@ def run_all_batch_jobs(args, all_sample_data) -> list:
         else:
             batch_project = project
 
-        if args.strip_test_codes:
-            codes_project, codes_file = args.strip_test_codes.split(':')
+        if args.ignore_test_codes:
+            codes_project, codes_file = args.ignore_test_codes.split(':')
             dxpy.bindings.dxfile_functions.download_dxfile(
                 codes_file,
                 "codes.txt",
